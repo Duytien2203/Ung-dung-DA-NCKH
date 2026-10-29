@@ -2,6 +2,7 @@
 Hypothesis Testing Module
 Includes Independent Samples T-Test (with Levene test & Welch correction),
 Paired Samples T-Test, and One-Way ANOVA with Post-Hoc comparisons (Tukey HSD / Games-Howell).
+Supports Factor Score and Mean Score computation for latent constructs.
 Generates APA tables and Vietnamese academic interpretations.
 """
 
@@ -11,7 +12,60 @@ from scipy import stats
 from statsmodels.stats.multicomp import pairwise_tukeyhsd
 
 
-def run_independent_ttest(df: pd.DataFrame, test_var: str, group_var: str, value_labels: dict = None) -> dict:
+def auto_detect_factors(df: pd.DataFrame) -> dict:
+    """
+    Tự động nhận diện các Thang đo/Nhân tố dựa trên tiền tố tên cột (ví dụ PU1..PU4 -> PU).
+    Bỏ qua các cột ID, nhân khẩu học hoặc các cột tính toán phái sinh.
+    Trả về dict dạng: {'PU': ['PU1', 'PU2', 'PU3', 'PU4'], 'PE': ...}
+    """
+    detected = {}
+    exclude_cols = {'id', 'use', 'gioitinh', 'dotuoi', 'thunhap', 'hocvan', 'y_kien_dap_vien'}
+    num_cols = df.select_dtypes(include=[np.number]).columns
+    for c in num_cols:
+        c_str = str(c)
+        c_lower = c_str.lower()
+        if c_lower in exclude_cols:
+            continue
+        if c_str.startswith(("MEAN_", "FS_", "SUM_", "Factor_")):
+            continue
+        prefix = ''.join([char for char in c_str if not char.isdigit()]).strip('_')
+        if prefix and len(prefix) >= 2:
+            detected.setdefault(prefix, []).append(c_str)
+    return {k: v for k, v in detected.items() if len(v) >= 2}
+
+
+def compute_scale_score(df: pd.DataFrame, items: list, method: str = "mean") -> pd.Series:
+    """
+    Tính điểm đại diện cho nhân tố dựa trên các biến quan sát:
+    - 'mean': Giá trị trung bình đại diện (Summated Rating Scale, Hair et al. 2022)
+    - 'sum': Tổng điểm tích lũy của các biến quan sát
+    - 'factor': Điểm số nhân tố chuẩn hóa theo trọng số PCA (Mean=0, SD=1)
+    """
+    valid_items = [c for c in items if c in df.columns and pd.api.types.is_numeric_dtype(df[c])]
+    if not valid_items:
+        raise ValueError("Danh sách biến quan sát không hợp lệ hoặc không có dữ liệu số.")
+    
+    clean_sub = df[valid_items].copy()
+    
+    if method == "sum":
+        return clean_sub.sum(axis=1)
+    elif method == "factor":
+        from sklearn.decomposition import PCA
+        imputed = clean_sub.fillna(clean_sub.mean())
+        pca = PCA(n_components=1)
+        score = pca.fit_transform(imputed).flatten()
+        # Đảm bảo chiều dương tương quan thuận với điểm trung bình
+        item_means = imputed.mean(axis=1).values
+        if len(score) > 1 and np.std(score) > 0 and np.std(item_means) > 0:
+            corr = np.corrcoef(score, item_means)[0, 1]
+            if not np.isnan(corr) and corr < 0:
+                score = -score
+        return pd.Series(np.round(score, 4), index=df.index)
+    else:  # default 'mean'
+        return pd.Series(np.round(clean_sub.mean(axis=1), 4), index=df.index)
+
+
+def run_independent_ttest(df: pd.DataFrame, test_var: str, group_var: str, value_labels: dict = None, selected_groups: list = None) -> dict:
     """
     Performs Independent Samples T-Test:
     - Group Descriptives (N, Mean, SD, SE)
@@ -19,8 +73,18 @@ def run_independent_ttest(df: pd.DataFrame, test_var: str, group_var: str, value
     - Student's t-test (Equal variances assumed)
     - Welch's t-test (Equal variances not assumed)
     - Effect size: Cohen's d
+    - Supports Define Groups (selecting 2 specific groups out of multi-group variables)
     """
-    clean_df = df[[test_var, group_var]].dropna()
+    clean_df = df[[test_var, group_var]].dropna().copy()
+    
+    if selected_groups is not None and len(selected_groups) == 2:
+        matched = clean_df[clean_df[group_var].isin(selected_groups)]
+        if len(matched) == 0:
+            str_targets = [str(x) for x in selected_groups]
+            clean_df = clean_df[clean_df[group_var].astype(str).isin(str_targets)]
+        else:
+            clean_df = matched
+        
     groups = clean_df[group_var].unique()
     
     if len(groups) != 2:
@@ -298,5 +362,47 @@ def generate_ttest_narrative(res: dict) -> str:
         txt += (
             f"Giá trị Sig. (2-tailed) = **{p_val:.4f} > 0.05**, kết luận KHÔNG có sự khác biệt có ý nghĩa thống kê về {var} "
             f"giữa hai nhóm {g1} và {g2}.\n"
+        )
+    return txt
+
+
+def generate_anova_narrative(res: dict) -> str:
+    """Generates APA academic narrative for One-Way ANOVA."""
+    if "error" in res:
+        return res["error"]
+        
+    var = res["test_var"]
+    gvar = res["group_var"]
+    f_stat = res["f_stat"]
+    p_val = res["p_val"]
+    levene_p = res["levene_p"]
+    eta_sq = res["eta_squared"]
+    
+    txt = (
+        f"**Báo cáo kết quả phân tích phương sai một yếu tố (One-Way ANOVA):**\n\n"
+        f"Thực hiện phân tích so sánh sự khác biệt về giá trị trung bình của **{var}** theo các nhóm phân loại của **{gvar}**.\n\n"
+        f"1. **Kiểm định tính đồng nhất của phương sai (Levene's Test):** "
+    )
+    if res["equal_var"]:
+        txt += (
+            f"Giá trị kiểm định Levene có Sig. = {levene_p:.3f} > 0.05, kết luận phương sai giữa các nhóm là đồng nhất (thỏa mãn giả định cơ bản của mô hình ANOVA).\n\n"
+        )
+    else:
+        txt += (
+            f"Giá trị kiểm định Levene có Sig. = {levene_p:.3f} < 0.05, phương sai giữa các nhóm có sự khác biệt (vi phạm giả định đồng nhất phương sai, khuyến nghị thận trọng hoặc kiểm tra thêm).\n\n"
+        )
+        
+    txt += f"2. **Kết quả kiểm định F (ANOVA):** "
+    if res["is_significant"]:
+        effect_desc = "lớn (>= 0.14)" if eta_sq >= 0.14 else ("trung bình (0.06 - 0.14)" if eta_sq >= 0.06 else "nhỏ (< 0.06)")
+        txt += (
+            f"Giá trị $F = {f_stat:.3f}$, $p = **{p_val:.4f} < 0.05**$, kết luận có sự khác biệt có ý nghĩa thống kê về {var} "
+            f"giữa các nhóm phân loại của {gvar}. Kích thước ảnh hưởng $\\eta^2 = {eta_sq:.4f}$ (mức {effect_desc}). "
+            f"Vui lòng tham khảo bảng so sánh cặp hậu kiểm Post-Hoc (Tukey HSD) bên dưới để xem chi tiết nhóm nào khác biệt với nhóm nào.\n"
+        )
+    else:
+        txt += (
+            f"Giá trị $F = {f_stat:.3f}$, $p = **{p_val:.4f} > 0.05**$, kết luận KHÔNG có sự khác biệt có ý nghĩa thống kê về {var} "
+            f"giữa các nhóm phân loại của {gvar}.\n"
         )
     return txt

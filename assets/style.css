@@ -116,13 +116,20 @@ div:has(> div > iframe[height="0"]),
 }
 
 /* Input & Form Labels in Main Content */
-.main [data-testid="stWidgetLabel"] label,
+[data-testid="stWidgetLabel"] label,
+[data-testid="stWidgetLabel"] p,
+[data-testid="stWidgetLabel"] span,
+div[data-testid="stRadio"] > label p,
+div[data-testid="stSelectbox"] > label p,
+div[data-testid="stMultiSelect"] > label p,
+div[data-testid="stTextInput"] > label p,
 .main [data-testid="stWidgetLabel"] p,
-.main [data-testid="stMarkdownContainer"] strong {
+.main [data-testid="stWidgetLabel"] label,
+[data-testid="stMarkdownContainer"] strong {
     font-size: 14.5px !important;
-    font-weight: 800 !important;
+    font-weight: 700 !important;
     color: #0f172a !important;
-    letter-spacing: -0.2px !important;
+    letter-spacing: -0.15px !important;
 }
 
 /* --- SIDEBAR STYLING (DEEP MIDNIGHT WITH HIGH-CONTRAST LIGHT TEXT) --- */

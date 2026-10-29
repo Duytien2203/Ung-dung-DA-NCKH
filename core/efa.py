@@ -2,8 +2,14 @@
 Exploratory Factor Analysis (EFA) Module
 Calculates KMO measure, Bartlett's test of sphericity, Eigenvalues,
 Total Variance Explained, Rotated Component / Pattern Matrix.
-Checks for low loadings (< 0.5) and cross-loadings (delta < 0.3).
+Supports full SPSS-style formatting:
+- Sorted by size (grouping items by primary factor, ordered descending)
+- Suppress small coefficients (customizable absolute threshold e.g. 0.10, 0.30, 0.40, 0.50)
+- Checks for low loadings (< 0.50) and cross-loadings (delta < 0.30).
 """
+
+import warnings
+warnings.filterwarnings('ignore', category=UserWarning, module='factor_analyzer')
 
 import numpy as np
 import pandas as pd
@@ -19,22 +25,109 @@ from factor_analyzer import FactorAnalyzer
 from factor_analyzer.factor_analyzer import calculate_kmo, calculate_bartlett_sphericity
 
 
+def format_spss_pattern_matrix(
+    df_loadings: pd.DataFrame,
+    labels_dict: dict = None,
+    sort_by_size: bool = True,
+    suppress_small: bool = True,
+    suppress_threshold: float = 0.30,
+    show_labels: bool = True,
+    show_primary_factor: bool = True,
+    hide_empty_rows: bool = False
+) -> pd.DataFrame:
+    """
+    Tạo bảng Pattern Matrix / Rotated Component Matrix chuẩn 100% định dạng SPSS:
+    - Sorted by size: Sắp xếp các biến quan sát gom theo từng cụm nhân tố chính (tải cao nhất),
+      và xếp giảm dần độ lớn hệ số tải trong từng nhân tố.
+    - Suppress small coefficients: Ẩn các hệ số tải có giá trị tuyệt đối nhỏ hơn ngưỡng (mặc định 0.30).
+    - Hiển thị trực quan biến quan sát nào tải lên nhân tố nào giống bảng output trong SPSS.
+    - hide_empty_rows: Ẩn các dòng biến có tất cả hệ số tải đều nhỏ hơn ngưỡng.
+    """
+    items = list(df_loadings.index)
+    factor_cols = list(df_loadings.columns)
+    
+    # Xác định nhân tố tải chính và giá trị tải lớn nhất của từng biến
+    item_info = []
+    for it in items:
+        row_vals = np.abs(df_loadings.loc[it].values)
+        p_idx = int(np.argmax(row_vals))
+        p_name = factor_cols[p_idx]
+        m_val = float(row_vals[p_idx])
+        item_info.append({
+            "item": it,
+            "p_idx": p_idx,
+            "p_name": p_name,
+            "m_val": m_val
+        })
+        
+    df_meta = pd.DataFrame(item_info)
+    if sort_by_size:
+        df_meta = df_meta.sort_values(by=["p_idx", "m_val"], ascending=[True, False])
+        
+    ordered_items = df_meta["item"].tolist()
+    
+    # Tạo bảng hiển thị
+    rows = []
+    for it in ordered_items:
+        meta_row = df_meta[df_meta["item"] == it].iloc[0]
+        row_dict = {"Biến quan sát": it}
+        if show_labels:
+            row_dict["Nhãn biến (Label)"] = labels_dict.get(it, "") if labels_dict else ""
+        if show_primary_factor:
+            row_dict["Nhân tố quy về"] = meta_row["p_name"]
+            
+        has_visible_loading = False
+        for f in factor_cols:
+            val = float(df_loadings.loc[it, f])
+            if suppress_small and abs(val) < suppress_threshold:
+                row_dict[f] = ""
+            else:
+                row_dict[f] = f"{val:.3f}"
+                has_visible_loading = True
+                
+        if hide_empty_rows and suppress_small and not has_visible_loading:
+            continue
+            
+        rows.append(row_dict)
+        
+    return pd.DataFrame(rows)
+
+
 def run_efa(df: pd.DataFrame, items: list, n_factors: int = None, 
             method: str = "principal", rotation: str = "varimax", 
-            loading_threshold: float = 0.50, labels_dict: dict = None) -> dict:
+            loading_threshold: float = 0.50, 
+            suppress_small: bool = True,
+            suppress_threshold: float = 0.30,
+            sort_by_size: bool = True,
+            labels_dict: dict = None) -> dict:
     """
-    Performs full EFA analysis:
-    - KMO and Bartlett's Test
-    - Eigenvalues & Variance Explained
-    - SPSS-Style Pattern Matrix (Sorted by size & Suppress small coefficients)
-    - Structure Matrix & Factor Correlation Matrix (for Oblique rotation)
-    - Cross-loading and Low-loading diagnostic checks
+    Thực hiện phân tích nhân tố khám phá EFA toàn diện chuẩn SPSS:
+    - Kiểm định KMO và Bartlett's Test of Sphericity
+    - Bảng Phương sai giải thích & Giá trị riêng Eigenvalues
+    - Pattern Matrix / Rotated Component Matrix chuẩn template SPSS
+      (Hỗ trợ Sorted by size và tùy chọn ngưỡng Suppress small coefficients)
+    - Structure Matrix & Factor Correlation Matrix (đối với phép xoay xiên Promax / Oblimin)
+    - Chẩn đoán biến tải thấp (< loading_threshold) và tải kép (Cross-loading delta < 0.30)
     """
-    data = df[items].dropna().copy()
+    valid_items = [c for c in items if c in df.columns and pd.api.types.is_numeric_dtype(df[c])]
+    if len(valid_items) < 3:
+        return {"error": "Cần ít nhất 3 biến quan sát dạng số để thực hiện phân tích nhân tố EFA."}
+        
+    data = df[valid_items].dropna().copy()
+    if len(data) < 10:
+        return {"error": f"Số lượng quan sát hợp lệ ({len(data)}) quá ít (< 10 quan sát). Vui lòng kiểm tra lại dữ liệu khuyết."}
+        
+    # Loại bỏ biến có phương sai = 0 (tất cả các dòng cùng 1 giá trị)
+    zero_var_cols = [c for c in valid_items if data[c].std() == 0]
+    if zero_var_cols:
+        data = data.drop(columns=zero_var_cols)
+        valid_items = [c for c in valid_items if c not in zero_var_cols]
+        if len(valid_items) < 3:
+            return {"error": f"Các biến {zero_var_cols} có phương sai = 0. Sau khi loại bỏ, số biến còn lại < 3 nên không thể chạy EFA."}
+            
     n_samples, n_vars = data.shape
-    
-    if n_vars < 3:
-        return {"error": "Cần ít nhất 3 biến quan sát để thực hiện phân tích nhân tố EFA."}
+    if n_samples <= n_vars:
+        return {"error": f"Cỡ mẫu hợp lệ (N = {n_samples}) cần lớn hơn số biến quan sát ({n_vars}) để phân tích nhân tố EFA."}
         
     # 1. KMO Test
     try:
@@ -76,21 +169,43 @@ def run_efa(df: pd.DataFrame, items: list, n_factors: int = None,
     is_oblique = rotation_clean in ["promax", "oblimin", "quartimin", "geomin_obl"]
 
     # 3. Initial extraction to determine number of factors by Kaiser Criterion (Eigenvalue >= 1)
-    fa_init = FactorAnalyzer(n_factors=n_vars, method=method_clean, rotation=None)
-    fa_init.fit(data)
-    ev, v = fa_init.get_eigenvalues()
+    try:
+        fa_init = FactorAnalyzer(n_factors=n_vars, method=method_clean, rotation=None)
+        fa_init.fit(data)
+        ev, v = fa_init.get_eigenvalues()
+    except Exception as e_init:
+        # Fallback to PCA if specific extraction fails
+        try:
+            fa_init = FactorAnalyzer(n_factors=n_vars, method="principal", rotation=None)
+            fa_init.fit(data)
+            ev, v = fa_init.get_eigenvalues()
+            method_clean = "principal"
+        except Exception as e_pca:
+            return {"error": f"Lỗi khi xác định giá trị riêng ban đầu: {str(e_pca)}"}
     
     # Kaiser criterion count
     if n_factors is None or n_factors <= 0:
         kaiser_factors = int(np.sum(ev >= 1.0))
         n_factors = max(kaiser_factors, 1)
         
-    # 4. Final rotated model
-    fa = FactorAnalyzer(n_factors=n_factors, method=method_clean, rotation=rotation_clean)
-    fa.fit(data)
+    # Khống chế số lượng nhân tố n_factors <= n_vars - 1 để tránh lỗi bậc tự do âm
+    n_factors = min(n_factors, max(1, n_vars - 1))
+        
+    # 4. Final rotated model with graceful fallback
+    try:
+        fa = FactorAnalyzer(n_factors=n_factors, method=method_clean, rotation=rotation_clean)
+        fa.fit(data)
+    except Exception as e_rot:
+        try:
+            # Fallback to varimax if oblique fails to converge
+            fa = FactorAnalyzer(n_factors=n_factors, method=method_clean, rotation="varimax")
+            fa.fit(data)
+            rotation_clean = "varimax"
+            is_oblique = False
+        except Exception as e_fallback:
+            return {"error": f"Lỗi trích nhân tố ({method_clean}) và xoay ({rotation_clean}): {str(e_fallback)}"}
     
     # Total variance explained table
-    # fa.get_factor_variance() returns (variance, proportional variance, cumulative variance)
     var_explained = fa.get_factor_variance()
     var_rows = []
     for i in range(n_factors):
@@ -106,60 +221,62 @@ def run_efa(df: pd.DataFrame, items: list, n_factors: int = None,
     # 5. Factor Loadings / Pattern Matrix
     loadings = fa.loadings_
     factor_cols = [f"Nhân tố {i+1}" for i in range(n_factors)]
-    df_loadings = pd.DataFrame(loadings, index=items, columns=factor_cols).round(3)
+    df_loadings = pd.DataFrame(loadings, index=valid_items, columns=factor_cols).round(3)
     
-    # Primary factor sorting (SPSS "Sorted by size")
-    primary_factors = [int(np.argmax(np.abs(df_loadings.loc[it].values))) for it in items]
-    max_loads = [float(np.max(np.abs(df_loadings.loc[it].values))) for it in items]
+    # Sắp xếp và format bảng Pattern Matrix chuẩn template SPSS
+    df_pattern_spss = format_spss_pattern_matrix(
+        df_loadings=df_loadings,
+        labels_dict=labels_dict,
+        sort_by_size=sort_by_size,
+        suppress_small=suppress_small,
+        suppress_threshold=suppress_threshold,
+        show_labels=True,
+        show_primary_factor=True
+    )
     
-    df_sort_helper = df_loadings.copy()
-    df_sort_helper['__p__'] = primary_factors
-    df_sort_helper['__m__'] = max_loads
-    df_pattern_sorted = df_sort_helper.sort_values(
-        by=['__p__', '__m__'], 
-        ascending=[True, False]
-    ).drop(columns=['__p__', '__m__'])
-    
-    # Suppress small loadings (< 0.30) like SPSS
-    df_pattern_suppressed = df_pattern_sorted.map(lambda v: f"{v:.3f}" if abs(v) >= 0.30 else "")
-    
-    # Bảng Pattern Matrix chuẩn SPSS hoàn chỉnh (kèm cột Biến và Nhãn biến)
-    df_pattern_spss = df_pattern_suppressed.copy()
-    df_pattern_spss.insert(0, "Biến quan sát", df_pattern_spss.index)
-    if labels_dict:
-        df_pattern_spss.insert(1, "Nhãn biến (Label)", [labels_dict.get(it, "") for it in df_pattern_spss["Biến quan sát"]])
-    df_pattern_spss = df_pattern_spss.reset_index(drop=True)
-    
-    # Bảng Pattern Matrix đầy đủ số (không ẩn < 0.30)
-    df_pattern_full = df_pattern_sorted.copy()
-    df_pattern_full.insert(0, "Biến quan sát", df_pattern_full.index)
-    if labels_dict:
-        df_pattern_full.insert(1, "Nhãn biến (Label)", [labels_dict.get(it, "") for it in df_pattern_full["Biến quan sát"]])
-    df_pattern_full = df_pattern_full.reset_index(drop=True)
+    # Bảng Pattern Matrix đầy đủ (không ẩn hệ số)
+    df_pattern_full = format_spss_pattern_matrix(
+        df_loadings=df_loadings,
+        labels_dict=labels_dict,
+        sort_by_size=sort_by_size,
+        suppress_small=False,
+        suppress_threshold=suppress_threshold,
+        show_labels=True,
+        show_primary_factor=True
+    )
     
     # 6. Structure Matrix (Ma trận Cấu trúc) - khi dùng phép xoay xiên Promax / Oblimin
     df_structure_spss = None
     if is_oblique and getattr(fa, "structure_", None) is not None:
-        df_struct_raw = pd.DataFrame(fa.structure_, index=items, columns=factor_cols).round(3)
-        df_struct_sorted = df_struct_raw.loc[df_pattern_sorted.index].copy()
-        df_struct_display = df_struct_sorted.copy()
-        df_struct_display.insert(0, "Biến quan sát", df_struct_display.index)
-        if labels_dict:
-            df_struct_display.insert(1, "Nhãn biến (Label)", [labels_dict.get(it, "") for it in df_struct_display["Biến quan sát"]])
-        df_structure_spss = df_struct_display.reset_index(drop=True)
+        try:
+            df_struct_raw = pd.DataFrame(fa.structure_, index=valid_items, columns=factor_cols).round(3)
+            df_structure_spss = format_spss_pattern_matrix(
+                df_loadings=df_struct_raw,
+                labels_dict=labels_dict,
+                sort_by_size=sort_by_size,
+                suppress_small=suppress_small,
+                suppress_threshold=suppress_threshold,
+                show_labels=True,
+                show_primary_factor=False
+            )
+        except Exception:
+            df_structure_spss = None
         
     # 7. Factor Correlation Matrix (Ma trận tương quan nhân tố phi)
     df_factor_corr = None
     if is_oblique and getattr(fa, "phi_", None) is not None:
-        df_phi = pd.DataFrame(fa.phi_, index=factor_cols, columns=factor_cols).round(3)
-        df_phi.insert(0, "Nhân tố", df_phi.index)
-        df_factor_corr = df_phi.reset_index(drop=True)
+        try:
+            df_phi = pd.DataFrame(fa.phi_, index=factor_cols, columns=factor_cols).round(3)
+            df_phi.insert(0, "Nhân tố", df_phi.index)
+            df_factor_corr = df_phi.reset_index(drop=True)
+        except Exception:
+            df_factor_corr = None
     
     # 8. Diagnostic checks (Low loading & Cross-loading evaluation)
     problem_items = []
     rows_eval = []
     
-    for item in items:
+    for item in valid_items:
         row_loads = np.abs(df_loadings.loc[item].values)
         sorted_indices = np.argsort(row_loads)[::-1]
         
@@ -237,8 +354,8 @@ def run_efa(df: pd.DataFrame, items: list, n_factors: int = None,
         "evaluated_table": df_evaluated_loadings,
         "pattern_matrix_spss": df_pattern_spss,
         "pattern_matrix_full": df_pattern_full,
-        "pattern_matrix_raw": df_pattern_sorted,
         "structure_matrix_spss": df_structure_spss,
+        "structure_matrix_raw": df_struct_raw if is_oblique else None,
         "factor_correlations": df_factor_corr,
         "is_oblique": is_oblique,
         "matrix_name": matrix_name,

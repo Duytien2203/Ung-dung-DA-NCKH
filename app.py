@@ -35,9 +35,10 @@ from core.descriptives import (
 )
 from core.reliability import analyze_scale_reliability, generate_reliability_narrative
 from core.hypothesis_tests import (
-    run_independent_ttest, run_oneway_anova, generate_ttest_narrative
+    run_independent_ttest, run_oneway_anova, generate_ttest_narrative,
+    compute_scale_score, auto_detect_factors, generate_anova_narrative
 )
-from core.efa import run_efa, generate_efa_narrative
+from core.efa import run_efa, generate_efa_narrative, format_spss_pattern_matrix
 from core.cfa_cbsem import run_cfa_cbsem, generate_cfa_cbsem_narrative
 from core.pls_sem import PLSModel, generate_pls_narrative
 from core.machine_learning import (
@@ -1569,65 +1570,275 @@ elif menu == "4. Độ tin cậy thang đo (Cronbach's Alpha)":
 # ---------------- MENU 5: T-TEST & ANOVA ----------------
 elif menu == "5. So sánh Trung bình (T-Test & ANOVA)":
     st.markdown("### 5. Kiểm định So sánh Trung bình (T-Test & ANOVA)")
+    st.markdown("""
+    <div style="color: #475569; font-size: 14px; margin-bottom: 16px; line-height: 1.6;">
+        Phân hệ kiểm định so sánh giá trị trung bình giữa các nhóm đối tượng (theo Giới tính, Độ tuổi, Thu nhập, Thời gian sử dụng...).
+        Hỗ trợ kiểm định trên <b>Điểm đại diện nhân tố (Mean Score / Factor Score - chuẩn APA Hair et al. 2022)</b> 
+        hoặc <b>từng biến quan sát riêng lẻ (Single Survey Items)</b>.
+    </div>
+    """, unsafe_allow_html=True)
     
-    test_type = st.radio("Chọn loại phép thử so sánh:", ["Independent Samples T-Test (2 nhóm)", "One-Way ANOVA (>= 2 nhóm)"], horizontal=True)
+    # Initialize session state for computed factor scores
+    if "computed_factor_scores" not in st.session_state:
+        st.session_state.computed_factor_scores = {}
+        
+    detected_factors = auto_detect_factors(df)
+    
+    # Tool: Factor Score & Mean Score Builder / Batch Calculator
+    with st.expander("🛠️ Bộ công cụ Tính Điểm Nhân tố (Factor Score / Mean Score Calculator)", expanded=False):
+        st.markdown("""
+        <div style="font-size: 13.5px; color: #334155; margin-bottom: 12px; line-height: 1.6;">
+            Trong NCKH, khi phân tích so sánh trung bình, các nhà nghiên cứu thường sử dụng <b>Điểm đại diện của Nhân tố (Mean Score / Summated Rating Scale)</b>
+            được tính từ trung bình các biến quan sát cấu thành để đại diện cho toàn bộ khái niệm nghiên cứu (Hair et al., 2022).
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # 1. Quick Batch Calculator
+        if detected_factors:
+            c_batch1, c_batch2 = st.columns([3, 1.4])
+            with c_batch1:
+                factors_preview = ", ".join([f"**{k}** ({len(v)} mục: {', '.join(v)})" for k, v in detected_factors.items()])
+                st.markdown(f"<div style='font-size: 13px; color: #1e293b; padding-top: 6px;'>Tự động nhận diện <b>{len(detected_factors)} thang đo</b>: {factors_preview}</div>", unsafe_allow_html=True)
+            with c_batch2:
+                if st.button("⚡ Tính nhanh Mean Score tất cả", use_container_width=True, help="Tự động tính giá trị trung bình (Mean Score) cho toàn bộ các thang đo được phát hiện"):
+                    for sc_name, sc_items in detected_factors.items():
+                        col_id = f"MEAN_{sc_name}"
+                        loader.df[col_id] = compute_scale_score(df, sc_items, "mean")
+                        loader.variable_labels[col_id] = f"Điểm trung bình nhân tố {sc_name} (Mean Score: {', '.join(sc_items)})"
+                        st.session_state.computed_factor_scores[col_id] = {
+                            "name": col_id,
+                            "scale": sc_name,
+                            "items": sc_items,
+                            "method": "mean"
+                        }
+                    st.success(f"✓ Đã tự động tạo {len(detected_factors)} biến điểm trung bình nhân tố: {', '.join([f'MEAN_{k}' for k in detected_factors.keys()])}")
+                    st.rerun()
+            st.markdown("<hr style='margin: 12px 0;'>", unsafe_allow_html=True)
+            
+        # 2. Custom Factor Score Builder
+        st.markdown("<div style='font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 8px;'>➕ Tạo Điểm Nhân tố / Thang đo Tùy chỉnh</div>", unsafe_allow_html=True)
+        cf_col1, cf_col2, cf_col3 = st.columns([1.5, 2.5, 1.5])
+        with cf_col1:
+            custom_factor_name = st.text_input("**Tên biến nhân tố mới:**", value=f"MEAN_FACTOR_{len(st.session_state.computed_factor_scores)+1}", help="Tên cột sẽ được tạo trong dữ liệu (ví dụ: MEAN_TR, CHATLUONG_MEAN, FS_HAI_LONG)")
+        with cf_col2:
+            num_available_cols = [c for c in df.select_dtypes(include=[np.number]).columns if c not in ['ID', 'id']]
+            custom_factor_items = st.multiselect("**Chọn các biến quan sát cấu thành:**", options=num_available_cols, help="Chọn các câu hỏi / chỉ báo Likert tạo nên nhân tố này")
+        with cf_col3:
+            custom_calc_method = st.selectbox("**Phương pháp tính:**", [
+                "mean", 
+                "factor", 
+                "sum"
+            ], format_func=lambda x: {
+                "mean": "Mean Score (Trung bình cộng - Khuyên dùng)",
+                "factor": "Factor Score (Trọng số PCA chuẩn hóa)",
+                "sum": "Sum Score (Tổng điểm cộng gộp)"
+            }[x])
+
+        if st.button("💾 Tính & Lưu Điểm Nhân tố vào Dữ liệu", use_container_width=True):
+            if not custom_factor_items or len(custom_factor_items) < 2:
+                st.warning("Vui lòng chọn ít nhất 2 biến quan sát để cấu thành nhân tố.")
+            elif not custom_factor_name.strip():
+                st.warning("Vui lòng nhập tên biến nhân tố.")
+            else:
+                clean_name = custom_factor_name.strip().replace(" ", "_")
+                try:
+                    score_series = compute_scale_score(df, custom_factor_items, custom_calc_method)
+                    loader.df[clean_name] = score_series
+                    desc_method = "Mean Score" if custom_calc_method == "mean" else ("Factor Score PCA" if custom_calc_method == "factor" else "Sum Score")
+                    loader.variable_labels[clean_name] = f"Điểm {desc_method} của {clean_name} ({', '.join(custom_factor_items)})"
+                    st.session_state.computed_factor_scores[clean_name] = {
+                        "name": clean_name,
+                        "scale": clean_name,
+                        "items": custom_factor_items,
+                        "method": custom_calc_method
+                    }
+                    st.success(f"✓ Đã tính thành công điểm nhân tố **{clean_name}**! (N = {len(score_series)}, Mean = {score_series.mean():.3f}, SD = {score_series.std():.3f})")
+                    st.rerun()
+                except Exception as ex:
+                    st.error(f"Lỗi khi tính điểm nhân tố: {str(ex)}")
+
+    st.markdown("---")
+
+    # Mode and Test Selector
+    test_type = st.radio("**Chọn loại phép thử so sánh:**", ["Independent Samples T-Test (2 nhóm)", "One-Way ANOVA (>= 2 nhóm)"], horizontal=True)
     
     num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
     num_cols = [c for c in num_cols if c not in ['ID', 'id']]
     all_cols = df.columns.tolist()
     
-    if test_type == "Independent Samples T-Test (2 nhóm)":
-        c1, c2 = st.columns(2)
-        with c1:
-            dep_var = st.selectbox("Biến phụ thuộc (Kiểm tra trung bình):", num_cols, index=0)
-        with c2:
-            two_cat = [c for c in all_cols if df[c].dropna().nunique() == 2]
-            group_var = st.selectbox("Biến phân nhóm (Đúng 2 nhóm, ví dụ Giới tính):", two_cat if two_cat else all_cols)
-            
-        if st.button("🚀 Chạy kiểm định T-Test", use_container_width=True):
-            res_t = run_independent_ttest(df, dep_var, group_var, loader.value_labels)
-            if "error" in res_t:
-                st.error(res_t["error"])
+    # Dependent Variable Configuration: Factor Score vs Single Item
+    existing_factor_cols = [c for c in df.columns if c.startswith(("MEAN_", "FS_", "SUM_")) or c in st.session_state.computed_factor_scores]
+    
+    dep_mode = st.radio(
+        "**Nguồn biến phụ thuộc (Kiểm tra trung bình):**",
+        [
+            "⭐ Điểm đại diện Nhân tố (Mean Score / Factor Score) — Khuyên dùng trong NCKH",
+            "📌 Từng biến quan sát riêng lẻ (Single Survey Item)"
+        ],
+        horizontal=True
+    )
+    
+    c1, c2 = st.columns(2)
+    
+    with c1:
+        if dep_mode.startswith("⭐"):
+            # Prepare factor options
+            factor_options = {}
+            for fc in existing_factor_cols:
+                meta_item = st.session_state.computed_factor_scores.get(fc, {})
+                items_info = f" ({', '.join(meta_item['items'])})" if 'items' in meta_item else ""
+                factor_options[fc] = f"{fc}{items_info}"
+                
+            # If no factor has been computed yet, automatically offer detected factors as on-the-fly options
+            for sc, sc_items in detected_factors.items():
+                m_key = f"MEAN_{sc}"
+                if m_key not in factor_options:
+                    factor_options[m_key] = f"{m_key} — Thang đo {sc} ({len(sc_items)} mục: {', '.join(sc_items)})"
+                    
+            if not factor_options:
+                st.warning("Chưa có điểm nhân tố nào trong dữ liệu. Vui lòng mở 'Bộ công cụ Tính Điểm Nhân tố' phía trên để tạo, hoặc chuyển sang 'Từng biến quan sát riêng lẻ'.")
+                dep_var = None
             else:
-                st.markdown("##### 1. Thống kê nhóm (Group Statistics)")
-                render_table(res_t["groups_table"], file_name=f"TTest_Thong_Ke_Nhom_{dep_var}_{group_var}.xlsx", sheet_name="Group_Stats")
-                
-                st.markdown("##### 2. Kết quả kiểm định mẫu độc lập (Independent Samples Test)")
-                render_table(res_t["tests_table"], file_name=f"TTest_Kiem_Dinh_Doc_Lap_{dep_var}_{group_var}.xlsx", sheet_name="Independent_Test")
-                
-                narr = generate_ttest_narrative(res_t)
-                st.markdown(f'<div class="academic-narrative">{narr}</div>', unsafe_allow_html=True)
-                st.session_state.analysis_results[f"TTest_{dep_var}_{group_var}"] = res_t["tests_table"]
+                dep_var_key = st.selectbox("**Chọn Nhân tố làm Biến phụ thuộc:**", options=list(factor_options.keys()), format_func=lambda x: factor_options[x])
+                # Ensure the column exists in loader.df
+                if dep_var_key not in df.columns:
+                    for sc, sc_items in detected_factors.items():
+                        if dep_var_key == f"MEAN_{sc}":
+                            loader.df[dep_var_key] = compute_scale_score(df, sc_items, "mean")
+                            loader.variable_labels[dep_var_key] = f"Điểm trung bình nhân tố {sc} ({', '.join(sc_items)})"
+                            df = loader.df
+                            st.session_state.computed_factor_scores[dep_var_key] = {
+                                "name": dep_var_key,
+                                "scale": sc,
+                                "items": sc_items,
+                                "method": "mean"
+                            }
+                            break
+                dep_var = dep_var_key
+                # Show quick metric info for selected factor
+                if dep_var and dep_var in df.columns:
+                    dep_series = df[dep_var].dropna()
+                    st.caption(f"📊 Nhân tố **{dep_var}**: N = {len(dep_series):,}, Mean = **{dep_series.mean():.3f}**, SD = **{dep_series.std():.3f}**, Min = {dep_series.min():.2f}, Max = {dep_series.max():.2f}")
+        else:
+            dep_var = st.selectbox("**Biến phụ thuộc (Kiểm tra trung bình):**", num_cols, index=0)
+            if dep_var:
+                dep_series = df[dep_var].dropna()
+                st.caption(f"📊 Biến **{dep_var}**: N = {len(dep_series):,}, Mean = **{dep_series.mean():.3f}**, SD = **{dep_series.std():.3f}**")
+
+    # Grouping Variable & Test Execution
+    selected_groups = None
+    
+    if test_type == "Independent Samples T-Test (2 nhóm)":
+        with c2:
+            two_cat = [c for c in all_cols if df[c].dropna().nunique() == 2 and c != dep_var]
+            multi_cat = [c for c in all_cols if df[c].dropna().nunique() >= 2 and c != dep_var]
+            group_options = two_cat if two_cat else multi_cat
+            group_var = st.selectbox("**Biến phân nhóm (Đúng 2 nhóm, ví dụ Giới tính):**", group_options, index=0)
+            
+            # Check groups in group_var
+            unique_vals = df[group_var].dropna().unique().tolist()
+            if len(unique_vals) == 2:
+                v1_label = loader.value_labels.get(group_var, {}).get(unique_vals[0], unique_vals[0]) if loader.value_labels else unique_vals[0]
+                v2_label = loader.value_labels.get(group_var, {}).get(unique_vals[1], unique_vals[1]) if loader.value_labels else unique_vals[1]
+                st.caption(f"✓ Biến có đúng 2 nhóm: **{v1_label}** và **{v2_label}**")
+            elif len(unique_vals) > 2:
+                st.info(f"💡 Biến **{group_var}** có **{len(unique_vals)} nhóm** ({', '.join([str(x) for x in unique_vals])}). Để so sánh bằng T-Test (Chuẩn SPSS Define Groups), vui lòng chọn 2 nhóm cần so sánh:")
+                cg1, cg2 = st.columns(2)
+                with cg1:
+                    g1_choice = st.selectbox("**Nhóm 1 (Group 1):**", unique_vals, index=0, key="ttest_g1_sel")
+                with cg2:
+                    g2_candidates = [x for x in unique_vals if x != g1_choice]
+                    g2_choice = st.selectbox("**Nhóm 2 (Group 2):**", g2_candidates, index=0, key="ttest_g2_sel")
+                selected_groups = [g1_choice, g2_choice]
+                st.caption("*(Gợi ý: Nếu muốn so sánh đồng thời tất cả các nhóm, hãy chọn **One-Way ANOVA** ở trên)*")
+
+        if st.button("🚀 Chạy kiểm định T-Test", use_container_width=True):
+            if not dep_var:
+                st.error("Vui lòng chọn biến phụ thuộc hợp lệ.")
+            else:
+                res_t = run_independent_ttest(df, dep_var, group_var, loader.value_labels, selected_groups=selected_groups)
+                if "error" in res_t:
+                    st.error(res_t["error"])
+                else:
+                    st.markdown("##### 1. Thống kê nhóm (Group Statistics)")
+                    render_table(res_t["groups_table"], file_name=f"TTest_Thong_Ke_Nhom_{dep_var}_{group_var}.xlsx", sheet_name="Group_Stats")
+                    
+                    st.markdown("##### 2. Kết quả kiểm định mẫu độc lập (Independent Samples Test)")
+                    render_table(res_t["tests_table"], file_name=f"TTest_Kiem_Dinh_Doc_Lap_{dep_var}_{group_var}.xlsx", sheet_name="Independent_Test")
+                    
+                    # Academic Plotly Chart
+                    fig_t = go.Figure()
+                    fig_t.add_trace(go.Bar(
+                        x=res_t["groups_table"]["Nhóm"],
+                        y=res_t["groups_table"]["Mean"],
+                        error_y=dict(type='data', array=res_t["groups_table"]["Std. Error"], visible=True),
+                        marker_color=['#2563eb', '#10b981'],
+                        text=[f"Mean = {m:.3f}" for m in res_t["groups_table"]["Mean"]],
+                        textposition='outside'
+                    ))
+                    fig_t.update_layout(
+                        title=f"Biểu đồ So sánh Giá trị Trung bình {dep_var} theo {group_var}",
+                        yaxis_title=f"Điểm Trung bình ({dep_var})",
+                        template="plotly_white",
+                        height=380
+                    )
+                    st.plotly_chart(fig_t, use_container_width=True)
+                    
+                    narr = generate_ttest_narrative(res_t)
+                    st.markdown(f'<div class="academic-narrative">{narr}</div>', unsafe_allow_html=True)
+                    st.session_state.analysis_results[f"TTest_{dep_var}_{group_var}"] = res_t["tests_table"]
 
     else:
-        c1, c2 = st.columns(2)
-        with c1:
-            dep_var = st.selectbox("Biến phụ thuộc (Kiểm tra trung bình):", num_cols, index=0)
         with c2:
-            multi_cat = [c for c in all_cols if 2 <= df[c].dropna().nunique() <= 10]
-            group_var = st.selectbox("Biến phân nhóm (Độ tuổi, Thu nhập, Học vấn...):", multi_cat if multi_cat else all_cols)
+            multi_cat = [c for c in all_cols if 2 <= df[c].dropna().nunique() <= 15 and c != dep_var]
+            group_var = st.selectbox("**Biến phân nhóm (Độ tuổi, Thu nhập, Học vấn...):**", multi_cat if multi_cat else all_cols)
+            n_grp = df[group_var].dropna().nunique()
+            st.caption(f"✓ Biến **{group_var}** có **{n_grp} nhóm** (Phù hợp với kiểm định One-Way ANOVA)")
             
         if st.button("🚀 Chạy kiểm định One-Way ANOVA", use_container_width=True):
-            res_a = run_oneway_anova(df, dep_var, group_var, loader.value_labels)
-            if "error" in res_a:
-                st.error(res_a["error"])
+            if not dep_var:
+                st.error("Vui lòng chọn biến phụ thuộc hợp lệ.")
             else:
-                st.markdown("##### 1. Thống kê mô tả theo nhóm")
-                render_table(res_a["descriptives_table"], file_name=f"ANOVA_Mo_Ta_Nhom_{dep_var}_{group_var}.xlsx", sheet_name="Descriptives")
-                
-                st.markdown("##### 2. Bảng phân tích phương sai (ANOVA)")
-                render_table(res_a["anova_table"], file_name=f"ANOVA_Bang_Phan_Tich_{dep_var}_{group_var}.xlsx", sheet_name="ANOVA")
-                
-                st.markdown(fr"**Levene Test:** Sig. = {res_a['levene_p']} | **Kích thước ảnh hưởng Eta-squared:** $\eta^2 = {res_a['eta_squared']:.4f}$")
-                
-                if res_a["is_significant"]:
-                    st.success("✓ Kiểm định ANOVA có ý nghĩa thống kê (p < 0.05). Có sự khác biệt trung bình giữa các nhóm!")
-                    st.markdown("##### 3. Kiểm định so sánh cặp Post-Hoc (Tukey HSD)")
-                    render_table(res_a["posthoc_table"], file_name=f"ANOVA_Hau_Kiem_Tukey_{dep_var}_{group_var}.xlsx", sheet_name="Tukey_HSD")
+                res_a = run_oneway_anova(df, dep_var, group_var, loader.value_labels)
+                if "error" in res_a:
+                    st.error(res_a["error"])
                 else:
-                    st.info("Kiểm định ANOVA không có ý nghĩa thống kê (p >= 0.05). Không có sự khác biệt giữa các nhóm.")
+                    st.markdown("##### 1. Thống kê mô tả theo nhóm")
+                    render_table(res_a["descriptives_table"], file_name=f"ANOVA_Mo_Ta_Nhom_{dep_var}_{group_var}.xlsx", sheet_name="Descriptives")
                     
-                st.session_state.analysis_results[f"ANOVA_{dep_var}_{group_var}"] = res_a["anova_table"]
+                    st.markdown("##### 2. Bảng phân tích phương sai (ANOVA)")
+                    render_table(res_a["anova_table"], file_name=f"ANOVA_Bang_Phan_Tich_{dep_var}_{group_var}.xlsx", sheet_name="ANOVA")
+                    
+                    st.markdown(fr"**Levene Test:** Sig. = {res_a['levene_p']} | **Kích thước ảnh hưởng Eta-squared:** $\eta^2 = {res_a['eta_squared']:.4f}$")
+                    
+                    if res_a["is_significant"]:
+                        st.success("✓ Kiểm định ANOVA có ý nghĩa thống kê (p < 0.05). Có sự khác biệt trung bình giữa các nhóm!")
+                        st.markdown("##### 3. Kiểm định so sánh cặp Post-Hoc (Tukey HSD)")
+                        render_table(res_a["posthoc_table"], file_name=f"ANOVA_Hau_Kiem_Tukey_{dep_var}_{group_var}.xlsx", sheet_name="Tukey_HSD")
+                    else:
+                        st.info("Kiểm định ANOVA không có ý nghĩa thống kê (p >= 0.05). Không có sự khác biệt giữa các nhóm.")
+                        
+                    # Academic Plotly Chart
+                    fig_a = go.Figure()
+                    fig_a.add_trace(go.Bar(
+                        x=res_a["descriptives_table"]["Nhóm"],
+                        y=res_a["descriptives_table"]["Mean"],
+                        error_y=dict(type='data', array=res_a["descriptives_table"]["Std. Error"], visible=True),
+                        marker_color='#2563eb',
+                        text=[f"{m:.3f}" for m in res_a["descriptives_table"]["Mean"]],
+                        textposition='outside'
+                    ))
+                    fig_a.update_layout(
+                        title=f"Biểu đồ So sánh Giá trị Trung bình {dep_var} theo các nhóm {group_var}",
+                        yaxis_title=f"Điểm Trung bình ({dep_var})",
+                        template="plotly_white",
+                        height=380
+                    )
+                    st.plotly_chart(fig_a, use_container_width=True)
+                    
+                    narr_a = generate_anova_narrative(res_a)
+                    st.markdown(f'<div class="academic-narrative">{narr_a}</div>', unsafe_allow_html=True)
+                    st.session_state.analysis_results[f"ANOVA_{dep_var}_{group_var}"] = res_a["anova_table"]
 
 
 # ---------------- MENU 6: EFA ----------------
@@ -1641,18 +1852,26 @@ elif menu == "6. Phân tích Nhân tố Khám phá (EFA)":
     """)
     
     num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-    likert_candidates = [c for c in num_cols if c.lower() not in ['id', 'use', 'gioitinh', 'dotuoi', 'thunhap', 'hocvan']]
+    likert_candidates = [c for c in num_cols if c.lower() not in ['id', 'use', 'gioitinh', 'dotuoi', 'thunhap', 'hocvan'] and not c.startswith(('MEAN_', 'FS_', 'SUM_'))]
     
+    if "efa_selected_items_state" not in st.session_state:
+        st.session_state["efa_selected_items_state"] = [c for c in likert_candidates if c in num_cols] if likert_candidates else num_cols
+    else:
+        st.session_state["efa_selected_items_state"] = [c for c in st.session_state["efa_selected_items_state"] if c in num_cols]
+        if not st.session_state["efa_selected_items_state"]:
+            st.session_state["efa_selected_items_state"] = likert_candidates if likert_candidates else num_cols
+            
     selected_items = st.multiselect(
-        "Chọn các biến quan sát để đưa vào phân tích EFA:",
+        "**Chọn các biến quan sát để đưa vào phân tích EFA:**",
         num_cols,
-        default=likert_candidates if likert_candidates else num_cols
+        default=st.session_state["efa_selected_items_state"]
     )
+    st.session_state["efa_selected_items_state"] = selected_items
     
     c1, c2, c3 = st.columns(3)
     with c1:
         method = st.selectbox(
-            "Phương pháp trích (Extraction):",
+            "**Phương pháp trích (Extraction):**",
             ["principal", "minres", "ml", "uls"],
             index=0,
             format_func=lambda x: {
@@ -1664,7 +1883,7 @@ elif menu == "6. Phân tích Nhân tố Khám phá (EFA)":
         )
     with c2:
         rotation = st.selectbox(
-            "Phép xoay nhân tố (Rotation):",
+            "**Phép xoay nhân tố (Rotation):**",
             ["varimax", "promax", "oblimin"],
             index=0,
             format_func=lambda x: {
@@ -1674,145 +1893,250 @@ elif menu == "6. Phân tích Nhân tố Khám phá (EFA)":
             }.get(x, x)
         )
     with c3:
-        n_factors_opt = st.number_input("Số lượng nhân tố (0 = Tự động theo Kaiser Eigenvalue >= 1):", min_value=0, max_value=15, value=0)
+        n_factors_opt = st.number_input("**Số lượng nhân tố (0 = Tự động theo Kaiser Eigenvalue >= 1):**", min_value=0, max_value=15, value=0)
         
+    if "efa_result" not in st.session_state:
+        st.session_state.efa_result = None
+
     if st.button("🚀 Chạy Phân tích EFA", use_container_width=True):
         if len(selected_items) < 3:
             st.error("Cần chọn ít nhất 3 biến quan sát để chạy EFA.")
+            st.session_state.efa_result = None
         else:
-            res_efa = run_efa(
-                df, selected_items, 
-                n_factors=None if n_factors_opt == 0 else n_factors_opt, 
-                method=method, rotation=rotation,
-                labels_dict=loader.variable_labels
-            )
-            if "error" in res_efa:
-                st.error(res_efa["error"])
-            else:
-                col_kmo, col_bart, col_var = st.columns(3)
-                with col_kmo:
-                    st.markdown(f"""
-                    <div class="pro-kpi-card">
-                        <div>
-                            <div class="kpi-label">Hệ số KMO</div>
-                            <div class="kpi-value">{res_efa['kmo_total']:.3f}</div>
-                        </div>
-                        <div class="kpi-badge badge-success">✓ {res_efa['kmo_eval']}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                with col_bart:
-                    st.markdown(f"""
-                    <div class="pro-kpi-card">
-                        <div>
-                            <div class="kpi-label">Kiểm định Bartlett</div>
-                            <div class="kpi-value" style="font-size: 20px;">p = {res_efa['bartlett_p']:.5f}</div>
-                        </div>
-                        <div class="kpi-badge badge-success">✓ p < 0.05 (Thích hợp)</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                with col_var:
-                    is_cum = res_efa['total_cum_variance'] >= 50.0
-                    b_cls = "badge-success" if is_cum else "badge-warning"
-                    st.markdown(f"""
-                    <div class="pro-kpi-card">
-                        <div>
-                            <div class="kpi-label">Tổng phương sai trích</div>
-                            <div class="kpi-value">{res_efa['total_cum_variance']:.2f}%</div>
-                        </div>
-                        <div class="kpi-badge {b_cls}">{'✓ >= 50% (Đạt yêu cầu)' if is_cum else 'Chưa đạt 50%'}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
-                    
-                st.markdown("<br>", unsafe_allow_html=True)
-                
-                # Phân loại Tabs hiển thị chuẩn học thuật & SPSS
-                matrix_label = res_efa["matrix_name"]
-                if res_efa["is_oblique"]:
-                    tab_pat, tab_struct, tab_phi, tab_eval, tab_scree = st.tabs([
-                        f"1. {matrix_label}",
-                        "2. Structure Matrix (Ma trận Cấu trúc)",
-                        "3. Tương quan Nhân tố (Factor Correlation)",
-                        "4. Chẩn đoán Tải kép & Chất lượng",
-                        "5. Phương sai trích & Scree Plot"
-                    ])
+            with st.spinner("Đang tính toán phân tích nhân tố khám phá EFA..."):
+                res_efa = run_efa(
+                    df, selected_items, 
+                    n_factors=None if n_factors_opt == 0 else n_factors_opt, 
+                    method=method, rotation=rotation,
+                    labels_dict=loader.variable_labels
+                )
+                if "error" in res_efa:
+                    st.error(res_efa["error"])
+                    st.session_state.efa_result = None
                 else:
-                    tab_pat, tab_eval, tab_scree = st.tabs([
-                        f"1. {matrix_label}",
-                        "2. Chẩn đoán Tải kép & Chất lượng",
-                        "3. Phương sai trích & Scree Plot"
-                    ])
-                    tab_struct = None
-                    tab_phi = None
-                    
-                with tab_pat:
-                    st.markdown(f"##### {matrix_label} - Định dạng Chuẩn SPSS")
-                    
-                    # Tùy chọn hiển thị chuẩn SPSS
-                    c_opt1, c_opt2 = st.columns([1, 1])
-                    with c_opt1:
-                        suppress_small = st.checkbox("Ẩn các hệ số nhỏ (< 0.30) theo chuẩn SPSS (Suppress small coefficients)", value=True, key="efa_suppress")
-                    with c_opt2:
-                        show_labels = st.checkbox("Hiển thị cột Nhãn biến (Variable Labels)", value=True, key="efa_show_labels")
-                        
-                    # Lựa chọn bảng dữ liệu hiển thị
-                    df_to_show = res_efa["pattern_matrix_spss"] if suppress_small else res_efa["pattern_matrix_full"]
-                    if not show_labels and "Nhãn biến (Label)" in df_to_show.columns:
-                        df_to_show = df_to_show.drop(columns=["Nhãn biến (Label)"])
-                        
-                    render_table(df_to_show, file_name="EFA_Pattern_Matrix.xlsx", sheet_name="Pattern_Matrix")
-                    
-                    # Chú thích học thuật chuẩn SPSS
-                    meth_str = "Principal Components (PCA)" if res_efa["method_name"] == "principal" else ("Principal Axis Factoring (PAF / MinRes)" if res_efa["method_name"] == "minres" else res_efa["method_name"].upper())
-                    rot_str = "Promax with Kaiser Normalization" if res_efa["rotation_name"] == "promax" else ("Varimax with Kaiser Normalization" if res_efa["rotation_name"] == "varimax" else res_efa["rotation_name"].capitalize())
-                    st.caption(f"Extraction Method: {meth_str} • Rotation Method: {rot_str}. Dữ liệu được sắp xếp theo nhóm nhân tố (Sorted by size) và ẩn các hệ số tải < 0.30 theo quy chuẩn SPSS.")
+                    st.session_state.efa_result = res_efa
 
-                if tab_struct is not None:
-                    with tab_struct:
-                        st.markdown("##### Structure Matrix (Ma trận Cấu trúc tương quan Biến - Nhân tố)")
-                        st.caption("Ma trận cấu trúc thể hiện hệ số tương quan đơn giản giữa biến quan sát và các nhân tố xoay.")
-                        df_struct_disp = res_efa["structure_matrix_spss"]
-                        if not show_labels and "Nhãn biến (Label)" in df_struct_disp.columns:
-                            df_struct_disp = df_struct_disp.drop(columns=["Nhãn biến (Label)"])
-                        render_table(df_struct_disp, file_name="EFA_Structure_Matrix.xlsx", sheet_name="Structure_Matrix")
-                        
-                if tab_phi is not None:
-                    with tab_phi:
-                        st.markdown("##### Factor Correlation Matrix (Ma trận tương quan giữa các Nhân tố)")
-                        st.caption("Theo Tabachnick & Fidell (2019) và Hair et al. (2022), nếu tương quan giữa các nhân tố r > 0.32 thì việc sử dụng phép xoay xiên (Promax/Oblimin) là hoàn toàn phù hợp và có cơ sở lý luận vững chắc.")
-                        render_table(res_efa["factor_correlations"], file_name="EFA_Tuong_Quan_Nhan_To.xlsx", sheet_name="Factor_Correlations")
-                        
-                with tab_eval:
-                    st.markdown("##### Bảng Đánh giá Hệ số tải & Kiểm định Tải kép (Cross-Loading Diagnostic)")
-                    render_table(res_efa["evaluated_table"], file_name="EFA_Danh_Gia_Tieu_Chuan.xlsx", sheet_name="EFA_Evaluated")
-                    if res_efa["problem_items"]:
-                        for it, prob in res_efa["problem_items"]:
-                            st.warning(f"⚠️ Biến **{it}**: {prob}")
-                    else:
-                        st.success("✅ Toàn bộ các biến quan sát đều đạt chuẩn (Loading >= 0.50, Chênh lệch tải kép Delta >= 0.30)!")
-                        
-                with tab_scree:
-                    st.markdown("##### Bảng Phương sai giải thích & Eigenvalues")
-                    render_table(res_efa["variance_table"], file_name="EFA_Tong_Phuong_Sai_Giai_Thich.xlsx", sheet_name="Variance_Explained")
-                    
-                    ev = res_efa["eigenvalues"]
-                    fig_scree = go.Figure()
-                    fig_scree.add_trace(go.Scatter(x=list(range(1, len(ev)+1)), y=ev, mode='lines+markers', name='Eigenvalue', line=dict(color='#2563eb', width=2.5)))
-                    fig_scree.add_hline(y=1.0, line_dash="dash", line_color="red", annotation_text="Kaiser Criterion (Eigenvalue = 1.0)")
-                    fig_scree.update_layout(title="Biểu đồ Scree Plot (Tiêu chuẩn trích nhân tố)", xaxis_title="Nhân tố", yaxis_title="Eigenvalue")
-                    clean_chart(fig_scree, height=340)
-                    fig_scree.update_xaxes(showgrid=True, gridcolor="#cbd5e1")
-                    fig_scree.update_yaxes(showgrid=True, gridcolor="#cbd5e1")
-                    st.plotly_chart(fig_scree, use_container_width=True, theme=None)
-                    
-                narr = generate_efa_narrative(res_efa)
-                st.markdown(f'<div class="academic-narrative">{narr}</div>', unsafe_allow_html=True)
+    # Render results when available (persists smoothly across option toggles)
+    if st.session_state.efa_result is not None:
+        res_efa = st.session_state.efa_result
+        col_kmo, col_bart, col_var = st.columns(3)
+        with col_kmo:
+            st.markdown(f"""
+            <div class="pro-kpi-card">
+                <div>
+                    <div class="kpi-label">Hệ số KMO</div>
+                    <div class="kpi-value">{res_efa['kmo_total']:.3f}</div>
+                </div>
+                <div class="kpi-badge badge-success">✓ {res_efa['kmo_eval']}</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with col_bart:
+            st.markdown(f"""
+            <div class="pro-kpi-card">
+                <div>
+                    <div class="kpi-label">Kiểm định Bartlett</div>
+                    <div class="kpi-value" style="font-size: 20px;">p = {res_efa['bartlett_p']:.5f}</div>
+                </div>
+                <div class="kpi-badge badge-success">✓ p < 0.05 (Thích hợp)</div>
+            </div>
+            """, unsafe_allow_html=True)
+        with col_var:
+            is_cum = res_efa['total_cum_variance'] >= 50.0
+            b_cls = "badge-success" if is_cum else "badge-warning"
+            st.markdown(f"""
+            <div class="pro-kpi-card">
+                <div>
+                    <div class="kpi-label">Tổng phương sai trích</div>
+                    <div class="kpi-value">{res_efa['total_cum_variance']:.2f}%</div>
+                </div>
+                <div class="kpi-badge {b_cls}">{'✓ >= 50% (Đạt yêu cầu)' if is_cum else 'Chưa đạt 50%'}</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        # Phân loại Tabs hiển thị chuẩn học thuật & SPSS
+        matrix_label = res_efa["matrix_name"]
+        if res_efa["is_oblique"]:
+            tab_pat, tab_struct, tab_phi, tab_eval, tab_scree = st.tabs([
+                f"1. {matrix_label}",
+                "2. Structure Matrix (Ma trận Cấu trúc)",
+                "3. Tương quan Nhân tố (Factor Correlation)",
+                "4. Chẩn đoán Tải kép & Chất lượng",
+                "5. Phương sai trích & Scree Plot"
+            ])
+        else:
+            tab_pat, tab_eval, tab_scree = st.tabs([
+                f"1. {matrix_label}",
+                "2. Chẩn đoán Tải kép & Chất lượng",
+                "3. Phương sai trích & Scree Plot"
+            ])
+            tab_struct = None
+            tab_phi = None
+            
+        with tab_pat:
+            st.markdown(f"##### {matrix_label} - Định dạng Chuẩn SPSS (Pattern Matrix Template)")
+            
+            # Khung Tùy chọn Định dạng Hiển thị Hệ số tải chuẩn SPSS
+            st.markdown("""
+            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px;">
+                <div style="font-weight: 700; font-size: 13.5px; color: #0f172a; margin-bottom: 6px;">
+                    ⚙️ Tùy chọn Định dạng Hiển thị Hệ số tải (Coefficient Display Format - Chuẩn SPSS)
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            c_opt1, c_opt2, c_opt3 = st.columns([1.3, 1.4, 1.3])
+            with c_opt1:
+                sort_by_size_val = st.checkbox("Sorted by size (Gom theo cụm nhân tố)", value=True, key="efa_sort_by_size", help="Sắp xếp các biến quan sát theo độ lớn của hệ số tải trên từng nhân tố chính")
+                show_primary_val = st.checkbox("Hiển thị cột Nhân tố quy về", value=True, key="efa_show_primary", help="Hiển thị rõ ràng biến quan sát nào thuộc nhân tố nào")
+            with c_opt2:
+                suppress_val = st.checkbox("Suppress small coefficients (Ẩn hệ số nhỏ)", value=True, key="efa_suppress_small", help="Ẩn các hệ số tải nhỏ hơn ngưỡng để tạo bảng ma trận bậc thang chuẩn SPSS")
+                show_labels_val = st.checkbox("Hiển thị cột Nhãn biến (Labels)", value=True, key="efa_show_labels")
+            with c_opt3:
+                suppress_threshold_val = st.number_input(
+                    "Ngưỡng ẩn (Absolute value below):",
+                    min_value=0.00,
+                    max_value=0.99,
+                    value=0.30,
+                    step=0.05,
+                    key="efa_suppress_thresh",
+                    help="Chuẩn SPSS mặc định 0.10 hoặc 0.30. Các hệ số tải có giá trị tuyệt đối nhỏ hơn ngưỡng này sẽ được để trống."
+                )
+                hide_empty_rows_val = st.checkbox("Ẩn dòng biến không đủ hệ số tải", value=False, key="efa_hide_empty_rows", help="Nếu bật, các dòng biến có tất cả hệ số tải nhỏ hơn ngưỡng sẽ được ẩn đi khỏi bảng.")
+
+            # Kiểm tra các biến không đạt ngưỡng trên bất kỳ nhân tố nào
+            raw_loadings = res_efa["loadings_table"]
+            max_loads_series = raw_loadings.abs().max(axis=1)
+            items_below_thresh = [it for it in raw_loadings.index if max_loads_series[it] < suppress_threshold_val]
+
+            if items_below_thresh:
+                st.markdown(f"""
+                <div style="background: #fff7ed; border-left: 4px solid #f97316; padding: 12px 16px; border-radius: 6px; margin: 10px 0 14px 0;">
+                    <div style="font-weight: 700; color: #9a3412; font-size: 13.5px;">
+                        ⚠️ Phát hiện {len(items_below_thresh)} biến quan sát không đạt hệ số tải trên bất kỳ nhân tố nào (< {suppress_threshold_val:.2f}):
+                    </div>
+                    <div style="color: #c2410c; font-size: 13px; margin-top: 4px; font-weight: 600;">
+                        {', '.join(items_below_thresh)}
+                    </div>
+                    <div style="color: #7c2d12; font-size: 12.5px; margin-top: 6px; line-height: 1.5;">
+                        <b>Quy chuẩn SPSS & NCKH:</b> Trong SPSS, ô <i>'Suppress small coefficients'</i> chỉ là <b>bộ lọc hiển thị thị giác (Display Filter)</b> chứ không tự động loại biến ra khỏi mô hình toán học (do đó các dòng này bị để trống). 
+                        Theo phương pháp nghiên cứu, để loại bỏ các biến này và <b>tái ước lượng lại toàn bộ ma trận (hệ số tải các biến còn lại sẽ được tính lại theo ma trận mới)</b>, bạn chỉ cần bấm nút bên dưới:
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
                 
-                # Lưu vào session_state để hỗ trợ xuất báo cáo Word / Excel
-                st.session_state.analysis_results["EFA_Pattern_Matrix"] = res_efa["pattern_matrix_spss"]
-                st.session_state.analysis_results["EFA_Rotated_Matrix"] = res_efa["evaluated_table"]
-                st.session_state.analysis_results["EFA_Variance"] = res_efa["variance_table"]
-                if res_efa["is_oblique"] and res_efa["factor_correlations"] is not None:
-                    st.session_state.analysis_results["EFA_Factor_Correlations"] = res_efa["factor_correlations"]
+                if st.button(f"✂️ Tự động loại {len(items_below_thresh)} biến này & Tái ước lượng lại EFA", type="primary", use_container_width=True):
+                    current_items = list(raw_loadings.index)
+                    new_items = [it for it in current_items if it not in items_below_thresh]
+                    if len(new_items) < 3:
+                        st.error("Sau khi loại biến, số biến quan sát còn lại ít hơn 3 nên không thể tiếp tục chạy EFA.")
+                    else:
+                        with st.spinner("Đang loại bỏ biến không đạt và tái tính toán lại ma trận EFA..."):
+                            st.session_state["efa_selected_items_state"] = new_items
+                            res_new = run_efa(
+                                df, new_items,
+                                n_factors=None if n_factors_opt == 0 else n_factors_opt,
+                                method=method, rotation=rotation,
+                                labels_dict=loader.variable_labels,
+                                suppress_small=suppress_val,
+                                suppress_threshold=suppress_threshold_val,
+                                sort_by_size=sort_by_size_val
+                            )
+                            if "error" in res_new:
+                                st.error(res_new["error"])
+                            else:
+                                st.session_state.efa_result = res_new
+                                st.success(f"✓ Đã loại bỏ thành công {len(items_below_thresh)} biến ({', '.join(items_below_thresh)})! Toàn bộ ma trận hệ số tải mới đã được tính toán lại.")
+                                st.rerun()
+                
+            # Định dạng động bảng Pattern Matrix từ raw loadings
+            df_to_show = format_spss_pattern_matrix(
+                df_loadings=res_efa["loadings_table"],
+                labels_dict=loader.variable_labels,
+                sort_by_size=sort_by_size_val,
+                suppress_small=suppress_val,
+                suppress_threshold=suppress_threshold_val,
+                show_labels=show_labels_val,
+                show_primary_factor=show_primary_val,
+                hide_empty_rows=hide_empty_rows_val
+            )
+            
+            render_table(df_to_show, file_name="EFA_Pattern_Matrix_SPSS.xlsx", sheet_name="Pattern_Matrix")
+            
+            # Cập nhật kết quả bảng xuất cho Bước 10
+            st.session_state.analysis_results["EFA_Pattern_Matrix"] = df_to_show
+            
+            # Chú thích học thuật chuẩn SPSS
+            meth_str = "Principal Components (PCA)" if res_efa["method_name"] == "principal" else ("Principal Axis Factoring (PAF / MinRes)" if res_efa["method_name"] == "minres" else res_efa["method_name"].upper())
+            rot_str = "Promax with Kaiser Normalization" if res_efa["rotation_name"] == "promax" else ("Varimax with Kaiser Normalization" if res_efa["rotation_name"] == "varimax" else str(res_efa["rotation_name"]).capitalize())
+            st.markdown(f"""
+            <div style="font-size: 12.5px; color: #64748b; font-style: italic; line-height: 1.6; margin-top: 8px;">
+                Extraction Method: {meth_str}.<br>
+                Rotation Method: {rot_str}.<br>
+                a. Dữ liệu {'được sắp xếp theo cụm nhân tố chính và giảm dần theo độ lớn hệ số tải (Sorted by size)' if sort_by_size_val else 'giữ theo thứ tự ban đầu'}.<br>
+                b. {'Các hệ số tải có giá trị tuyệt đối < ' + str(round(suppress_threshold_val, 2)) + ' đã được làm trống (Suppressed) theo quy chuẩn SPSS.' if suppress_val else 'Toàn bộ các hệ số tải được hiển thị đầy đủ.'}
+            </div>
+            """, unsafe_allow_html=True)
+
+        if tab_struct is not None:
+            with tab_struct:
+                st.markdown("##### Structure Matrix (Ma trận Cấu trúc tương quan Biến - Nhân tố)")
+                st.caption("Ma trận cấu trúc thể hiện hệ số tương quan đơn giản giữa biến quan sát và các nhân tố xoay.")
+                if res_efa.get("structure_matrix_raw") is not None:
+                    df_struct_disp = format_spss_pattern_matrix(
+                        df_loadings=res_efa["structure_matrix_raw"],
+                        labels_dict=loader.variable_labels,
+                        sort_by_size=sort_by_size_val,
+                        suppress_small=suppress_val,
+                        suppress_threshold=suppress_threshold_val,
+                        show_labels=show_labels_val,
+                        show_primary_factor=False,
+                        hide_empty_rows=hide_empty_rows_val
+                    )
+                else:
+                    df_struct_disp = res_efa["structure_matrix_spss"]
+                    if not show_labels_val and "Nhãn biến (Label)" in df_struct_disp.columns:
+                        df_struct_disp = df_struct_disp.drop(columns=["Nhãn biến (Label)"])
+                render_table(df_struct_disp, file_name="EFA_Structure_Matrix.xlsx", sheet_name="Structure_Matrix")
+                
+        if tab_phi is not None:
+            with tab_phi:
+                st.markdown("##### Factor Correlation Matrix (Ma trận tương quan giữa các Nhân tố)")
+                st.caption("Theo Tabachnick & Fidell (2019) và Hair et al. (2022), nếu tương quan giữa các nhân tố r > 0.32 thì việc sử dụng phép xoay xiên (Promax/Oblimin) là hoàn toàn phù hợp và có cơ sở lý luận vững chắc.")
+                render_table(res_efa["factor_correlations"], file_name="EFA_Tuong_Quan_Nhan_To.xlsx", sheet_name="Factor_Correlations")
+                
+        with tab_eval:
+            st.markdown("##### Bảng Đánh giá Hệ số tải & Kiểm định Tải kép (Cross-Loading Diagnostic)")
+            render_table(res_efa["evaluated_table"], file_name="EFA_Danh_Gia_Tieu_Chuan.xlsx", sheet_name="EFA_Evaluated")
+            if res_efa["problem_items"]:
+                for it, prob in res_efa["problem_items"]:
+                    st.warning(f"⚠️ Biến **{it}**: {prob}")
+            else:
+                st.success("✅ Toàn bộ các biến quan sát đều đạt chuẩn (Loading >= 0.50, Chênh lệch tải kép Delta >= 0.30)!")
+                
+        with tab_scree:
+            st.markdown("##### Bảng Phương sai giải thích & Eigenvalues")
+            render_table(res_efa["variance_table"], file_name="EFA_Tong_Phuong_Sai_Giai_Thich.xlsx", sheet_name="Variance_Explained")
+            
+            ev = res_efa["eigenvalues"]
+            fig_scree = go.Figure()
+            fig_scree.add_trace(go.Scatter(x=list(range(1, len(ev)+1)), y=ev, mode='lines+markers', name='Eigenvalue', line=dict(color='#2563eb', width=2.5)))
+            fig_scree.add_hline(y=1.0, line_dash="dash", line_color="red", annotation_text="Kaiser Criterion (Eigenvalue = 1.0)")
+            fig_scree.update_layout(title="Biểu đồ Scree Plot (Tiêu chuẩn trích nhân tố)", xaxis_title="Nhân tố", yaxis_title="Eigenvalue")
+            clean_chart(fig_scree, height=340)
+            fig_scree.update_xaxes(showgrid=True, gridcolor="#cbd5e1")
+            fig_scree.update_yaxes(showgrid=True, gridcolor="#cbd5e1")
+            st.plotly_chart(fig_scree, use_container_width=True, theme=None)
+            
+        narr = generate_efa_narrative(res_efa)
+        st.markdown(f'<div class="academic-narrative">{narr}</div>', unsafe_allow_html=True)
+        
+        # Lưu vào session_state để hỗ trợ xuất báo cáo Word / Excel
+        st.session_state.analysis_results["EFA_Rotated_Matrix"] = res_efa["evaluated_table"]
+        st.session_state.analysis_results["EFA_Variance"] = res_efa["variance_table"]
+        if res_efa["is_oblique"] and res_efa["factor_correlations"] is not None:
+            st.session_state.analysis_results["EFA_Factor_Correlations"] = res_efa["factor_correlations"]
 
 
 # ---------------- MENU 7: CFA & CB-SEM ----------------

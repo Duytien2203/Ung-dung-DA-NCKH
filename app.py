@@ -2815,6 +2815,14 @@ elif menu == "10. Xuất Báo cáo Học thuật (Word/Excel)":
         st.markdown("---")
         report_title = st.text_input("Tiêu đề báo cáo học thuật:", "BÁO CÁO KẾT QUẢ XỬ LÝ SỐ LIỆU NGHIÊN CỨU KHOA HỌC")
         
+        # Tạo tên tệp an toàn tự động đồng bộ theo tiêu đề người dùng đặt
+        clean_title = re.sub(r'[\\/*?:\x22<>|]', '-', report_title.strip()) if report_title else ""
+        clean_title = re.sub(r'-+', '-', clean_title).strip(' -_')
+        word_filename = f"{clean_title}.docx" if clean_title else "Bao_cao_NCKH_APA7.docx"
+        excel_filename = f"{clean_title}.xlsx" if clean_title else "Ket_qua_Thong_ke_NCKH.xlsx"
+        
+        st.caption(f"💾 Tên tệp xuất dự kiến: **{word_filename}** (Word) &bull; **{excel_filename}** (Excel)")
+        
         c1, c2 = st.columns(2)
         with c1:
             sections = []
@@ -2829,7 +2837,7 @@ elif menu == "10. Xuất Báo cáo Học thuật (Word/Excel)":
             st.download_button(
                 label="📄 Tải Báo cáo Microsoft Word (.docx) Chuẩn APA 7",
                 data=docx_buffer,
-                file_name="Bao_cao_NCKH_APA7.docx",
+                file_name=word_filename,
                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 use_container_width=True
             )
@@ -2839,7 +2847,7 @@ elif menu == "10. Xuất Báo cáo Học thuật (Word/Excel)":
             st.download_button(
                 label="📊 Tải Trọn bộ Kết quả Microsoft Excel (.xlsx)",
                 data=excel_buffer,
-                file_name="Ket_qua_Thong_ke_NCKH.xlsx",
+                file_name=excel_filename,
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
             )

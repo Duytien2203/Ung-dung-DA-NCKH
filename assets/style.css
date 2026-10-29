@@ -12,10 +12,39 @@ html, body, .stApp {
     background-color: #edf2f7 !important;
 }
 
-/* Hide Streamlit Clutter */
-#MainMenu, footer, header, .stDeployButton {
-    visibility: hidden;
-    display: none;
+/* Hide Streamlit Clutter while keeping sidebar controls accessible on mobile */
+#MainMenu, footer, .stDeployButton {
+    visibility: hidden !important;
+    display: none !important;
+}
+
+[data-testid="stHeader"] {
+    background-color: transparent !important;
+    z-index: 99999 !important;
+}
+
+[data-testid="stSidebarCollapsedControl"] {
+    display: flex !important;
+    visibility: visible !important;
+    z-index: 100000 !important;
+    background: #1d4ed8 !important;
+    border-radius: 8px !important;
+    margin: 8px !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 12px rgba(29, 78, 216, 0.4) !important;
+    transition: all 0.2s ease !important;
+}
+
+[data-testid="stSidebarCollapsedControl"]:hover {
+    background: #2563eb !important;
+    transform: scale(1.05) !important;
+}
+
+[data-testid="stSidebarCollapsedControl"] svg {
+    fill: #ffffff !important;
+    stroke: #ffffff !important;
+    width: 22px !important;
+    height: 22px !important;
 }
 
 /* Main Container Layout */
@@ -743,4 +772,209 @@ html, body, .stApp {
 .pro-footer .author-name {
     color: #1d4ed8;
     font-weight: 850;
+}
+
+/* =========================================================================
+   MOBILE & RESPONSIVE ERGONOMIC OPTIMIZATIONS (< 768px)
+   ========================================================================= */
+
+@media (max-width: 768px) {
+    /* Compact Viewport Margins */
+    .main .block-container {
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+        padding-top: 0.75rem !important;
+        padding-bottom: 2.5rem !important;
+        max-width: 100% !important;
+    }
+
+    /* Stack Multi-Column Layouts Vertically for Legibility */
+    [data-testid="column"] {
+        width: 100% !important;
+        flex: 1 1 100% !important;
+        min-width: 100% !important;
+        margin-bottom: 10px !important;
+    }
+
+    /* Keep Mini Action Row (e.g. table title + Excel download button) side-by-side */
+    .stHorizontal:has([data-testid="stDownloadButton"]) {
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+    }
+
+    /* Responsive Typography */
+    .main h1 {
+        font-size: 21px !important;
+        line-height: 1.3 !important;
+    }
+    .main h2 {
+        font-size: 18px !important;
+        line-height: 1.35 !important;
+    }
+    .main h3 {
+        font-size: 16.5px !important;
+        margin-top: 10px !important;
+        margin-bottom: 10px !important;
+    }
+    .main h4 {
+        font-size: 15px !important;
+        margin-top: 8px !important;
+        margin-bottom: 8px !important;
+    }
+    .main h5 {
+        font-size: 14px !important;
+    }
+    .main p, .main span, .main li {
+        font-size: 13.5px !important;
+    }
+
+    /* Mobile Header Banner */
+    .pro-header {
+        padding: 16px 14px !important;
+        border-radius: 10px !important;
+        margin-bottom: 14px !important;
+    }
+    .pro-header .brand-row {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 10px !important;
+    }
+    .pro-header .brand-title {
+        font-size: 19px !important;
+        line-height: 1.25 !important;
+    }
+    .pro-header .brand-subtitle {
+        font-size: 12px !important;
+        margin-top: 4px !important;
+    }
+    .pro-header .meta-pill {
+        font-size: 11px !important;
+        padding: 5px 12px !important;
+        align-self: flex-start !important;
+    }
+
+    /* Swipeable Horizontal Tabs Bar */
+    .stTabs [data-baseweb="tab-list"] {
+        display: flex !important;
+        overflow-x: auto !important;
+        flex-wrap: nowrap !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: none !important;
+        padding: 4px !important;
+        gap: 4px !important;
+        border-radius: 8px !important;
+    }
+    .stTabs [data-baseweb="tab-list"]::-webkit-scrollbar {
+        display: none !important;
+    }
+    .stTabs [data-baseweb="tab"] {
+        white-space: nowrap !important;
+        padding: 8px 14px !important;
+        font-size: 12.5px !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Touch-Optimized Segmented Radio Buttons */
+    .main [data-testid="stRadio"] [role="radiogroup"] {
+        gap: 6px !important;
+        padding: 5px !important;
+    }
+    .main [data-testid="stRadio"] [role="radiogroup"] label {
+        padding: 8px 12px !important;
+        font-size: 12.5px !important;
+        flex: 1 1 auto !important;
+        justify-content: center !important;
+        min-height: 38px !important;
+    }
+
+    /* Responsive KPI Cards */
+    .pro-kpi-card {
+        padding: 14px 14px !important;
+        margin-bottom: 8px !important;
+    }
+    .pro-kpi-card .kpi-label {
+        font-size: 11px !important;
+    }
+    .pro-kpi-card .kpi-value {
+        font-size: 22px !important;
+    }
+    .pro-kpi-card .kpi-badge {
+        font-size: 11px !important;
+        padding: 3px 8px !important;
+    }
+
+    /* Compact Content Boxes & Academic Narratives */
+    .content-box {
+        padding: 14px 14px !important;
+        border-radius: 8px !important;
+        margin-bottom: 14px !important;
+    }
+    .academic-narrative {
+        padding: 14px 16px !important;
+        font-size: 13.5px !important;
+        line-height: 1.65 !important;
+        margin: 14px 0 !important;
+        border-radius: 0 8px 8px 0 !important;
+    }
+
+    /* Swipeable Stepper Workflow Bar */
+    .workflow-stepper {
+        padding: 6px 8px !important;
+        margin-bottom: 14px !important;
+        -webkit-overflow-scrolling: touch !important;
+        scrollbar-width: none !important;
+    }
+    .workflow-stepper::-webkit-scrollbar {
+        display: none !important;
+    }
+    .step-item {
+        font-size: 11px !important;
+        padding: 4px 6px !important;
+    }
+
+    /* Responsive DataFrames & Tables with Smooth Touch Scroll */
+    [data-testid="stDataFrame"],
+    [data-testid="stTable"] {
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+
+    /* Mobile Buttons */
+    .stButton > button {
+        width: 100% !important;
+        padding: 10px 16px !important;
+        font-size: 13.5px !important;
+        justify-content: center !important;
+    }
+
+    .stDownloadButton > button {
+        width: 100% !important;
+        justify-content: center !important;
+    }
+
+    /* Full-screen Mobile Sidebar Drawer */
+    [data-testid="stSidebar"] {
+        width: 86vw !important;
+        max-width: 360px !important;
+    }
+
+    /* Mobile Footer */
+    .pro-footer {
+        margin-top: 36px !important;
+        padding: 16px 0 !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+    }
+    .pro-footer .author-badge {
+        width: 100% !important;
+        justify-content: center !important;
+    }
+
+    /* Plotly Responsive Chart Containers */
+    .js-plotly-plot, .plotly {
+        max-width: 100% !important;
+        overflow-x: auto !important;
+    }
 }

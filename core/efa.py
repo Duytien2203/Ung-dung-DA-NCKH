@@ -14,12 +14,23 @@ warnings.filterwarnings('ignore', category=UserWarning, module='factor_analyzer'
 import numpy as np
 import pandas as pd
 
-# Compatibility patch for factor_analyzer with scikit-learn >= 1.6
+# Compatibility patch for factor_analyzer across all scikit-learn versions
+import inspect
+import sklearn.utils.validation as val
 import factor_analyzer.factor_analyzer as fa_mod
-_orig_check_array = fa_mod.check_array
-fa_mod.check_array = lambda *args, **kwargs: _orig_check_array(
-    *args, **{('ensure_all_finite' if k == 'force_all_finite' else k): v for k, v in kwargs.items()}
-)
+
+_orig_check_array = val.check_array
+_has_ensure = "ensure_all_finite" in inspect.signature(_orig_check_array).parameters
+
+def _safe_check_array(*args, **kwargs):
+    if "force_all_finite" in kwargs and _has_ensure:
+        kwargs["ensure_all_finite"] = kwargs.pop("force_all_finite")
+    elif "ensure_all_finite" in kwargs and not _has_ensure:
+        kwargs["force_all_finite"] = kwargs.pop("ensure_all_finite")
+    return _orig_check_array(*args, **kwargs)
+
+val.check_array = _safe_check_array
+fa_mod.check_array = _safe_check_array
 
 from factor_analyzer import FactorAnalyzer
 from factor_analyzer.factor_analyzer import calculate_kmo, calculate_bartlett_sphericity
@@ -168,42 +179,80 @@ def run_efa(df: pd.DataFrame, items: list, n_factors: int = None,
     rotation_clean = rotation_alias.get(str(rotation).lower().strip() if rotation else "", rotation)
     is_oblique = rotation_clean in ["promax", "oblimin", "quartimin", "geomin_obl"]
 
-    # 3. Initial extraction to determine number of factors by Kaiser Criterion (Eigenvalue >= 1)
-    try:
-        fa_init = FactorAnalyzer(n_factors=n_vars, method=method_clean, rotation=None)
-        fa_init.fit(data)
-        ev, v = fa_init.get_eigenvalues()
-    except Exception as e_init:
-        # Fallback to PCA if specific extraction fails
-        try:
-            fa_init = FactorAnalyzer(n_factors=n_vars, method="principal", rotation=None)
-            fa_init.fit(data)
-            ev, v = fa_init.get_eigenvalues()
-            method_clean = "principal"
-        except Exception as e_pca:
-            return {"error": f"Lỗi khi xác định giá trị riêng ban đầu: {str(e_pca)}"}
-    
-    # Kaiser criterion count
+    # 3. Initial Eigenvalues of Correlation Matrix (Standard SPSS mathematical formula)
+    # R * v = lambda * v (Calculated directly via LAPACK eigh: instant, 100% stable, zero recursion risk)
+    corr_mtx = np.corrcoef(data, rowvar=False)
+    corr_mtx = (corr_mtx + corr_mtx.T) / 2.0  # Guarantee exact symmetry
+    ev = np.sort(np.linalg.eigvalsh(corr_mtx))[::-1]
+    ev = np.maximum(ev, 0.0)
+
+    # Helper: maximum factors m such that df = ((p - m)^2 - (p + m)) / 2 >= 0
+    def _get_max_common_factors(p: int) -> int:
+        for m in range(p - 1, 0, -1):
+            if (p - m)**2 - (p + m) >= 0:
+                return m
+        return 1
+
+    # Kaiser criterion count (Eigenvalue >= 1.0)
     if n_factors is None or n_factors <= 0:
         kaiser_factors = int(np.sum(ev >= 1.0))
         n_factors = max(kaiser_factors, 1)
-        
-    # Khống chế số lượng nhân tố n_factors <= n_vars - 1 để tránh lỗi bậc tự do âm
-    n_factors = min(n_factors, max(1, n_vars - 1))
-        
-    # 4. Final rotated model with graceful fallback
+
+    # Restrict n_factors to avoid negative degrees of freedom in common factor analysis
+    if method_clean in ["minres", "ml", "uls", "pa"]:
+        max_allowed = _get_max_common_factors(n_vars)
+        if n_factors > max_allowed:
+            n_factors = max_allowed
+    else:
+        n_factors = min(n_factors, max(1, n_vars - 1))
+
+    # 4. Final rotated model with graceful multi-level fallback
+    fa = None
+    fa_errors = []
+
+    # Attempt 1: Requested method + requested rotation
     try:
-        fa = FactorAnalyzer(n_factors=n_factors, method=method_clean, rotation=rotation_clean)
-        fa.fit(data)
-    except Exception as e_rot:
+        candidate_fa = FactorAnalyzer(n_factors=n_factors, method=method_clean, rotation=rotation_clean)
+        candidate_fa.fit(data)
+        fa = candidate_fa
+    except Exception as e1:
+        fa_errors.append(f"{method_clean}+{rotation_clean}: {str(e1)}")
+
+    # Attempt 2: If oblique rotation failed, fallback to orthogonal (varimax)
+    if fa is None and rotation_clean != "varimax":
         try:
-            # Fallback to varimax if oblique fails to converge
-            fa = FactorAnalyzer(n_factors=n_factors, method=method_clean, rotation="varimax")
-            fa.fit(data)
+            candidate_fa = FactorAnalyzer(n_factors=n_factors, method=method_clean, rotation="varimax")
+            candidate_fa.fit(data)
+            fa = candidate_fa
             rotation_clean = "varimax"
             is_oblique = False
-        except Exception as e_fallback:
-            return {"error": f"Lỗi trích nhân tố ({method_clean}) và xoay ({rotation_clean}): {str(e_fallback)}"}
+        except Exception as e2:
+            fa_errors.append(f"{method_clean}+varimax: {str(e2)}")
+
+    # Attempt 3: Fallback to Principal Axis Factoring / PCA (always solvable via SVD)
+    if fa is None and method_clean != "principal":
+        try:
+            candidate_fa = FactorAnalyzer(n_factors=n_factors, method="principal", rotation=rotation_clean)
+            candidate_fa.fit(data)
+            fa = candidate_fa
+            method_clean = "principal"
+        except Exception as e3:
+            fa_errors.append(f"principal+{rotation_clean}: {str(e3)}")
+
+    # Attempt 4: Principal with Varimax
+    if fa is None:
+        try:
+            candidate_fa = FactorAnalyzer(n_factors=n_factors, method="principal", rotation="varimax")
+            candidate_fa.fit(data)
+            fa = candidate_fa
+            method_clean = "principal"
+            rotation_clean = "varimax"
+            is_oblique = False
+        except Exception as e4:
+            fa_errors.append(f"principal+varimax: {str(e4)}")
+
+    if fa is None:
+        return {"error": f"Không thể trích xuất nhân tố ({'; '.join(fa_errors)})"}
     
     # Total variance explained table
     var_explained = fa.get_factor_variance()

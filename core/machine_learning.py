@@ -22,7 +22,12 @@ import pandas as pd
 from scipy import stats
 import re
 import mimetypes
-mimetypes.init = lambda *args, **kwargs: None
+try:
+    if hasattr(mimetypes, "MimeTypes") and hasattr(mimetypes.MimeTypes, "read_windows_registry"):
+        mimetypes.MimeTypes.read_windows_registry = lambda self, *args, **kwargs: None
+    mimetypes.init()
+except Exception:
+    pass
 
 # Scikit-Learn
 from sklearn.model_selection import cross_val_score, KFold, StratifiedKFold

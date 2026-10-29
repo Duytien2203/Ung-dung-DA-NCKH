@@ -13,7 +13,12 @@ if sys.platform == 'win32':
     except Exception:
         pass
 
-mimetypes.init = lambda *args, **kwargs: None
+try:
+    if hasattr(mimetypes, "MimeTypes") and hasattr(mimetypes.MimeTypes, "read_windows_registry"):
+        mimetypes.MimeTypes.read_windows_registry = lambda self, *args, **kwargs: None
+    mimetypes.init()
+except Exception:
+    pass
 
 import pandas as pd
 import numpy as np

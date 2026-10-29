@@ -8,7 +8,12 @@ Exports all statistical results and narrative interpretations to:
 import io
 import re
 import mimetypes
-mimetypes.init = lambda *args, **kwargs: None
+try:
+    if hasattr(mimetypes, "MimeTypes") and hasattr(mimetypes.MimeTypes, "read_windows_registry"):
+        mimetypes.MimeTypes.read_windows_registry = lambda self, *args, **kwargs: None
+    mimetypes.init()
+except Exception:
+    pass
 
 import pandas as pd
 import docx

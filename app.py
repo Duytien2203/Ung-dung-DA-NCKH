@@ -11,11 +11,13 @@ import io
 import re
 import mimetypes
 
-# Fix Windows registry sandbox permission in Python mimetypes
-mimetypes.init = lambda *args, **kwargs: None
-mimetypes.inited = True
-if hasattr(mimetypes, "MimeTypes"):
-    mimetypes.MimeTypes.read_windows_registry = lambda *args, **kwargs: None
+# Safe mimetypes initialization across Windows, Linux (Streamlit Cloud), and sandboxes
+try:
+    if hasattr(mimetypes, "MimeTypes") and hasattr(mimetypes.MimeTypes, "read_windows_registry"):
+        mimetypes.MimeTypes.read_windows_registry = lambda self, *args, **kwargs: None
+    mimetypes.init()
+except Exception:
+    pass
 
 import streamlit as st
 import pandas as pd

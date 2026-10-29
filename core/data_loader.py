@@ -6,11 +6,13 @@ Preserves variable labels, value labels, and measurement scales.
 
 import io
 import mimetypes
-# Patch mimetypes for Windows registry sandbox safety
-mimetypes.init = lambda *args, **kwargs: None
-mimetypes.inited = True
-if hasattr(mimetypes, "MimeTypes"):
-    mimetypes.MimeTypes.read_windows_registry = lambda *args, **kwargs: None
+# Safe mimetypes initialization across Windows, Linux (Streamlit Cloud), and sandboxes
+try:
+    if hasattr(mimetypes, "MimeTypes") and hasattr(mimetypes.MimeTypes, "read_windows_registry"):
+        mimetypes.MimeTypes.read_windows_registry = lambda self, *args, **kwargs: None
+    mimetypes.init()
+except Exception:
+    pass
 
 import pandas as pd
 import numpy as np

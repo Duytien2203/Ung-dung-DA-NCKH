@@ -1,0 +1,22 @@
+[browser]
+gatherUsageStats = false
+
+[server]
+headless = false
+runOnSave = true
+port = 8501
+
+[theme]
+base = "light"
+primaryColor = "#1d4ed8"
+backgroundColor = "#edf2f7"
+secondaryBackgroundColor = "#ffffff"
+textColor = "#0f172a"
+borderColor = "#cbd5e1"
+showWidgetBorder = true
+showSidebarBorder = true
+dataframeBorderColor = "#cbd5e1"
+dataframeHeaderBackgroundColor = "#e2e8f0"
+dataframeHeaderTextColor = "#0f172a"
+baseFontWeight = 500
+font = "sans serif"

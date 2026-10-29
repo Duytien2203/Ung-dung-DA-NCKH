@@ -116,16 +116,14 @@ div:has(> div > iframe[height="0"]),
 }
 
 /* Input & Form Labels in Main Content */
-[data-testid="stWidgetLabel"] label,
-[data-testid="stWidgetLabel"] p,
-[data-testid="stWidgetLabel"] span,
-div[data-testid="stRadio"] > label p,
-div[data-testid="stSelectbox"] > label p,
-div[data-testid="stMultiSelect"] > label p,
-div[data-testid="stTextInput"] > label p,
-.main [data-testid="stWidgetLabel"] p,
 .main [data-testid="stWidgetLabel"] label,
-[data-testid="stMarkdownContainer"] strong {
+.main [data-testid="stWidgetLabel"] p,
+.main [data-testid="stWidgetLabel"] span,
+.main div[data-testid="stRadio"] > label p,
+.main div[data-testid="stSelectbox"] > label p,
+.main div[data-testid="stMultiSelect"] > label p,
+.main div[data-testid="stTextInput"] > label p,
+.main [data-testid="stMarkdownContainer"] strong {
     font-size: 14.5px !important;
     font-weight: 700 !important;
     color: #0f172a !important;
@@ -145,63 +143,122 @@ div[data-testid="stTextInput"] > label p,
     font-weight: 800 !important;
 }
 
-[data-testid="stSidebar"] [data-testid="stWidgetLabel"] label,
-[data-testid="stSidebar"] [data-testid="stWidgetLabel"] p {
-    color: #e2e8f0 !important;
-    font-weight: 700 !important;
-    font-size: 13px !important;
+/* --- SIDEBAR WORKFLOW NAVIGATION (MODERN ENTERPRISE SAAS STYLE) --- */
+
+/* 1. Header Section Label: "QUY TRÌNH PHÂN TÍCH NCKH" */
+[data-testid="stSidebar"] div[data-testid="stRadio"] > label {
+    display: block !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 6px 4px 10px 4px !important;
+    margin: 0 !important;
 }
 
-/* Sidebar Radio Navigation */
-[data-testid="stSidebar"] .stRadio [role="radiogroup"] {
+[data-testid="stSidebar"] div[data-testid="stRadio"] > label p,
+[data-testid="stSidebar"] div[data-testid="stRadio"] > label span {
+    font-size: 11.5px !important;
+    font-weight: 750 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+    color: #64748b !important;
+}
+
+/* 2. Radio Group Vertical Column */
+[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] {
     display: flex !important;
     flex-direction: column !important;
-    gap: 5px !important;
+    gap: 6px !important;
     background: transparent !important;
     border: none !important;
     padding: 0 !important;
+    width: 100% !important;
 }
 
-[data-testid="stSidebar"] .stRadio label {
-    background: #131d33 !important;
-    border: 1px solid #1e293b !important;
-    padding: 10px 14px !important;
-    border-radius: 8px !important;
-    cursor: pointer !important;
-    margin-bottom: 3px !important;
-    transition: all 0.15s ease !important;
+/* 3. Each Navigation Item Card */
+[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label {
     display: flex !important;
     align-items: center !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    background: #0f172a !important;
+    border: 1px solid #1e293b !important;
+    border-left: 3.5px solid transparent !important;
+    padding: 10px 14px !important;
+    min-height: 44px !important;
+    border-radius: 8px !important;
+    cursor: pointer !important;
+    margin: 0 !important;
+    position: relative !important;
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
-[data-testid="stSidebar"] .stRadio label:hover {
-    background-color: #1e293b !important;
-    border-color: #334155 !important;
+/* 4. Completely HIDE the clunky default Streamlit radio bullet circle */
+[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label > div:first-child,
+[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label [data-baseweb="radio"] > div:first-child,
+[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label [data-baseweb="radio"],
+[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label input[type="radio"],
+[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label input[type="radio"] + div {
+    display: none !important;
+    visibility: hidden !important;
+    width: 0 !important;
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
 }
 
-/* Inactive Sidebar Radio Text */
-[data-testid="stSidebar"] .stRadio label p,
-[data-testid="stSidebar"] .stRadio label span {
-    color: #cbd5e1 !important;
+/* 5. Item Text Typography */
+[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label [data-testid="stMarkdownContainer"] {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label [data-testid="stMarkdownContainer"] p,
+[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label [data-testid="stMarkdownContainer"] span {
+    color: #94a3b8 !important;
     font-weight: 600 !important;
     font-size: 13.5px !important;
+    line-height: 1.4 !important;
+    margin: 0 !important;
+    letter-spacing: -0.15px !important;
+    transition: color 0.15s ease !important;
+    white-space: normal !important;
+    word-break: break-word !important;
 }
 
-[data-testid="stSidebar"] .stRadio label:hover p {
+/* 6. Hover State (Smooth Slate Lift) */
+[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label:hover {
+    background-color: #1e293b !important;
+    border-color: #334155 !important;
+    border-left-color: #60a5fa !important;
+    transform: translateX(2px) !important;
+}
+
+[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label:hover [data-testid="stMarkdownContainer"] p,
+[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label:hover [data-testid="stMarkdownContainer"] span {
     color: #ffffff !important;
 }
 
-/* Active Sidebar Radio Item */
-[data-testid="stSidebar"] .stRadio label:has(input:checked) {
-    background-color: #1d4ed8 !important;
+/* 7. Active / Selected State (Royal Blue Gradient with Cyan Accent Bar & Pure White Text) */
+[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label:has(input:checked),
+[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label[aria-checked="true"] {
+    background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%) !important;
     border-color: #3b82f6 !important;
-    box-shadow: 0 4px 12px rgba(29, 78, 216, 0.4) !important;
+    border-left: 4.5px solid #67e8f9 !important;
+    box-shadow: 0 4px 14px rgba(29, 78, 216, 0.4) !important;
+    transform: translateX(0) !important;
 }
 
-[data-testid="stSidebar"] .stRadio label:has(input:checked) p,
-[data-testid="stSidebar"] .stRadio label:has(input:checked) span {
+[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) [data-testid="stMarkdownContainer"] p,
+[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) [data-testid="stMarkdownContainer"] span,
+[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label[aria-checked="true"] [data-testid="stMarkdownContainer"] p,
+[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label[aria-checked="true"] [data-testid="stMarkdownContainer"] span {
     color: #ffffff !important;
-    font-weight: 800 !important;
+    font-weight: 750 !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25) !important;
 }
 
 /* --- SIDEBAR FILE UPLOADER & BUTTONS (HIGH CONTRAST & CRYSTAL CLEAR) --- */

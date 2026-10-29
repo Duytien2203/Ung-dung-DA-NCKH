@@ -1,6 +1,9 @@
 [browser]
 gatherUsageStats = false
 
+[client]
+showErrorDetails = "full"
+
 [server]
 headless = true
 runOnSave = true

@@ -26,8 +26,15 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 
-# Add current directory to path
-sys.path.append(os.path.dirname(os.path.abspath(__file__)))
+# Ensure current directory is at the top of sys.path and purge stale core modules for clean hot-reloads
+_app_dir = os.path.dirname(os.path.abspath(__file__))
+if _app_dir not in sys.path:
+    sys.path.insert(0, _app_dir)
+
+# Evict cached core modules if any were loaded in a previous run so hot-reloading always loads updated code
+for _mod_name in list(sys.modules.keys()):
+    if _mod_name == "core" or _mod_name.startswith("core."):
+        del sys.modules[_mod_name]
 
 from core.data_loader import DataLoader
 from core.descriptives import (

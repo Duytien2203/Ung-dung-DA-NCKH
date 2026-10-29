@@ -9,7 +9,13 @@ Generates APA tables and Vietnamese academic interpretations.
 import numpy as np
 import pandas as pd
 from scipy import stats
-from statsmodels.stats.multicomp import pairwise_tukeyhsd
+
+try:
+    from statsmodels.stats.multicomp import pairwise_tukeyhsd
+    HAS_STATSMODELS = True
+except ImportError:
+    HAS_STATSMODELS = False
+    pairwise_tukeyhsd = None
 
 
 def auto_detect_factors(df: pd.DataFrame) -> dict:
@@ -292,20 +298,25 @@ def run_oneway_anova(df: pd.DataFrame, test_var: str, group_var: str, value_labe
     clean_df["_Group_Label"] = clean_df[group_var].apply(
         lambda x: f"{value_labels[group_var].get(x, x)} ({x})" if value_labels and group_var in value_labels else str(x)
     )
-    tukey = pairwise_tukeyhsd(endog=clean_df[test_var], groups=clean_df["_Group_Label"], alpha=0.05)
-    
-    tukey_data = []
-    for r in tukey.summary().data[1:]:
-        tukey_data.append({
-            "Nhóm 1": r[0],
-            "Nhóm 2": r[1],
-            "Chênh lệch Mean": round(float(r[2]), 3),
-            "p-adj": round(float(r[3]), 4),
-            "95% CI Lower": round(float(r[4]), 3),
-            "95% CI Upper": round(float(r[5]), 3),
-            "Ý nghĩa thống kê": "Có khác biệt (p < 0.05)" if r[6] else "Không khác biệt"
-        })
-    df_posthoc = pd.DataFrame(tukey_data)
+    if pairwise_tukeyhsd is not None:
+        try:
+            tukey = pairwise_tukeyhsd(endog=clean_df[test_var], groups=clean_df["_Group_Label"], alpha=0.05)
+            tukey_data = []
+            for r in tukey.summary().data[1:]:
+                tukey_data.append({
+                    "Nhóm 1": r[0],
+                    "Nhóm 2": r[1],
+                    "Chênh lệch Mean": round(float(r[2]), 3),
+                    "p-adj": round(float(r[3]), 4),
+                    "95% CI Lower": round(float(r[4]), 3),
+                    "95% CI Upper": round(float(r[5]), 3),
+                    "Ý nghĩa thống kê": "Có khác biệt (p < 0.05)" if r[6] else "Không khác biệt"
+                })
+            df_posthoc = pd.DataFrame(tukey_data)
+        except Exception:
+            df_posthoc = pd.DataFrame([{"Thông báo": "Không thể tính toán so sánh Post-Hoc cho cấu trúc dữ liệu này."}])
+    else:
+        df_posthoc = pd.DataFrame([{"Thông báo": "Chưa cài đặt thư viện statsmodels để chạy Post-Hoc Tukey HSD."}])
     
     return {
         "test_var": test_var,

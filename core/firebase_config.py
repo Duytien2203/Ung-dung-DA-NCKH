@@ -6,6 +6,7 @@ Measurement ID: G-17SYW8V8HM
 
 import streamlit.components.v1 as components
 import json
+import os
 import urllib.request
 import urllib.error
 import datetime
@@ -94,27 +95,51 @@ def inject_firebase_analytics():
 def send_feedback_to_firestore(name: str, email: str, role: str, topic: str, rating: int, content: str) -> tuple:
     """
     Sends user feedback to Firebase Cloud Firestore collection 'feedbacks'.
+    Also creates a local backup log in 'data/feedbacks.jsonl'.
     Returns (success: bool, detail: str).
     """
     if not content or not content.strip():
         return False, "Nội dung góp ý không được để trống."
+
+    now_utc = datetime.datetime.now(datetime.timezone.utc)
+    now_iso = now_utc.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    feedback_record = {
+        "name": (name.strip() if name and name.strip() else "Người dùng ẩn danh"),
+        "email": (email.strip() if email and email.strip() else "Không cung cấp"),
+        "role": role or "Nhà nghiên cứu / Giảng viên",
+        "topic": topic or "Đề xuất tính năng mới",
+        "rating": rating,
+        "content": content.strip(),
+        "created_at": now_iso,
+        "platform": "SmartResearch Studio Web"
+    }
+
+    # Always save a local backup copy so feedback is never lost
+    try:
+        data_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data")
+        os.makedirs(data_dir, exist_ok=True)
+        local_log_path = os.path.join(data_dir, "feedbacks.jsonl")
+        with open(local_log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(feedback_record, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
 
     url = (
         f"https://firestore.googleapis.com/v1/projects/{FIREBASE_CONFIG['projectId']}"
         f"/databases/(default)/documents/feedbacks?key={FIREBASE_CONFIG['apiKey']}"
     )
 
-    now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
     doc_payload = {
         "fields": {
-            "name": {"stringValue": (name.strip() if name and name.strip() else "Người dùng ẩn danh")},
-            "email": {"stringValue": (email.strip() if email and email.strip() else "Không cung cấp")},
-            "role": {"stringValue": role or "Nhà nghiên cứu / Giảng viên"},
-            "topic": {"stringValue": topic or "Đề xuất tính năng mới"},
-            "rating": {"integerValue": str(rating)},
-            "content": {"stringValue": content.strip()},
+            "name": {"stringValue": feedback_record["name"]},
+            "email": {"stringValue": feedback_record["email"]},
+            "role": {"stringValue": feedback_record["role"]},
+            "topic": {"stringValue": feedback_record["topic"]},
+            "rating": {"integerValue": str(feedback_record["rating"])},
+            "content": {"stringValue": feedback_record["content"]},
             "created_at": {"timestampValue": now_iso},
-            "platform": {"stringValue": "SmartResearch Studio Web"}
+            "platform": {"stringValue": feedback_record["platform"]}
         }
     }
 

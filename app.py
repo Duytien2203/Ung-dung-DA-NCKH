@@ -315,16 +315,16 @@ def render_sem_diagram(paths: list, r2_dict: dict = None, title: str = "Sơ đ�
 _table_render_counter = 0
 
 MENU_LIST = [
-    "📂 1. Quản lý & Khảo sát Dữ liệu",
-    "🧹 2. Tiền xử lý: Mã hóa & Làm sạch dữ liệu",
-    "📊 3. Thống kê Nhân khẩu học & Mô tả",
-    "🔬 4. Độ tin cậy thang đo (Cronbach's Alpha)",
-    "⚖️ 5. So sánh Trung bình (T-Test & ANOVA)",
-    "🧩 6. Phân tích Nhân tố Khám phá (EFA)",
-    "🏛️ 7. CFA & CB-SEM (Mô hình hiệp phương sai)",
-    "⚡ 8. PLS-SEM (Bình phương bé nhất từng phần)",
-    "🤖 9. Machine Learning trong NCKH",
-    "📑 10. Xuất Báo cáo Học thuật (Word/Excel)"
+    "1. Quản lý & Khảo sát Dữ liệu",
+    "2. Tiền xử lý: Mã hóa & Làm sạch dữ liệu",
+    "3. Thống kê Nhân khẩu học & Mô tả",
+    "4. Độ tin cậy thang đo (Cronbach's Alpha)",
+    "5. So sánh Trung bình (T-Test & ANOVA)",
+    "6. Phân tích Nhân tố Khám phá (EFA)",
+    "7. CFA & CB-SEM (Mô hình hiệp phương sai)",
+    "8. PLS-SEM (Bình phương bé nhất từng phần)",
+    "9. Machine Learning trong NCKH",
+    "10. Xuất Báo cáo Học thuật (Word/Excel)"
 ]
 
 STEP_NAMES = [
@@ -443,16 +443,16 @@ with st.sidebar:
 # ---------------- TOP WORKFLOW PROGRESS PIPELINE ----------------
 # Map menu item to step number (1-to-1 exact synchronization)
 step_mapping = {
-    "📂 1. Quản lý & Khảo sát Dữ liệu": 1,
-    "🧹 2. Tiền xử lý: Mã hóa & Làm sạch dữ liệu": 2,
-    "📊 3. Thống kê Nhân khẩu học & Mô tả": 3,
-    "🔬 4. Độ tin cậy thang đo (Cronbach's Alpha)": 4,
-    "⚖️ 5. So sánh Trung bình (T-Test & ANOVA)": 5,
-    "🧩 6. Phân tích Nhân tố Khám phá (EFA)": 6,
-    "🏛️ 7. CFA & CB-SEM (Mô hình hiệp phương sai)": 7,
-    "⚡ 8. PLS-SEM (Bình phương bé nhất từng phần)": 8,
-    "🤖 9. Machine Learning trong NCKH": 9,
-    "📑 10. Xuất Báo cáo Học thuật (Word/Excel)": 10
+    "1. Quản lý & Khảo sát Dữ liệu": 1,
+    "2. Tiền xử lý: Mã hóa & Làm sạch dữ liệu": 2,
+    "3. Thống kê Nhân khẩu học & Mô tả": 3,
+    "4. Độ tin cậy thang đo (Cronbach's Alpha)": 4,
+    "5. So sánh Trung bình (T-Test & ANOVA)": 5,
+    "6. Phân tích Nhân tố Khám phá (EFA)": 6,
+    "7. CFA & CB-SEM (Mô hình hiệp phương sai)": 7,
+    "8. PLS-SEM (Bình phương bé nhất từng phần)": 8,
+    "9. Machine Learning trong NCKH": 9,
+    "10. Xuất Báo cáo Học thuật (Word/Excel)": 10
 }
 current_step = step_mapping.get(menu, 1)
 
@@ -498,6 +498,7 @@ stepper_selected = st.pills(
     default=current_step,
     format_func=lambda x: f"{x}. {STEP_NAMES[x-1]}",
     key="stepper_pills_val",
+    wrap=False,
     on_change=on_stepper_change,
     label_visibility="collapsed"
 )
@@ -531,84 +532,86 @@ def render_page_footer(key_suffix: str = ""):
     """, unsafe_allow_html=True)
 
     # ---------------- ĐÓNG GÓP Ý KIẾN Ở DƯỚI CÙNG TRANG WEB ----------------
-    st.markdown("<div style='margin-top: 18px;'></div>", unsafe_allow_html=True)
-    with st.expander("Đóng góp ý kiến phát triển SmartResearch Studio", expanded=False):
-        st.markdown("""
-        <div style="margin-bottom: 14px; color: #334155; font-size: 13.5px; line-height: 1.6;">
-            Chúng tôi luôn lắng nghe và trân trọng mọi ý kiến phản hồi từ các nhà nghiên cứu, giảng viên và sinh viên để liên tục hoàn thiện ứng dụng.
-            Mọi ý kiến của bạn sẽ được gửi trực tiếp và lưu trữ an toàn trong cơ sở dữ liệu SmartResearch Studio.
-        </div>
-        """, unsafe_allow_html=True)
-        
-        with st.form(f"feedback_form_{key_suffix}", clear_on_submit=True):
-            fb_col1, fb_col2 = st.columns([1, 1])
-            with fb_col1:
-                fb_name = st.text_input("Họ và tên (Tùy chọn):", placeholder="Ví dụ: Nguyễn Văn A", key=f"fb_name_{key_suffix}")
-                fb_email = st.text_input("Email liên hệ (Tùy chọn):", placeholder="email@example.com", key=f"fb_email_{key_suffix}")
-                fb_role = st.selectbox(
-                    "Vai trò nghiên cứu của bạn:",
-                    [
-                        "Giảng viên / Nhà nghiên cứu",
-                        "Nghiên cứu sinh / Học viên Cao học",
-                        "Sinh viên đại học",
-                        "Chuyên viên Phân tích Dữ liệu (Data Analyst)",
-                        "Khác"
-                    ],
-                    key=f"fb_role_{key_suffix}"
-                )
-            with fb_col2:
-                fb_topic = st.selectbox(
-                    "Chủ đề đóng góp:",
-                    [
-                        "Đề xuất tính năng mới",
-                        "Báo lỗi tính toán / Số liệu",
-                        "Cải thiện giao diện & Trải nghiệm",
-                        "Yêu cầu thêm mô hình thống kê / Machine Learning",
-                        "Góp ý tài liệu & Diễn giải học thuật",
-                        "Ý kiến đóng góp khác"
-                    ],
-                    key=f"fb_topic_{key_suffix}"
-                )
-                fb_rating = st.select_slider(
-                    "Mức độ hài lòng chung về ứng dụng:",
-                    options=[1, 2, 3, 4, 5],
-                    value=5,
-                    format_func=lambda x: f"{x} ⭐" + (" (Rất hài lòng)" if x == 5 else " (Hài lòng)" if x == 4 else " (Bình thường)" if x == 3 else " (Chưa hài lòng)" if x == 2 else " (Rất không hài lòng)"),
-                    key=f"fb_rating_{key_suffix}"
-                )
+    st.markdown("<div style='margin-top: 24px;'></div>", unsafe_allow_html=True)
+    _, col_fb, _ = st.columns([1, 3.5, 1])
+    with col_fb:
+        with st.expander("💬 Đóng góp ý kiến phát triển SmartResearch Studio", expanded=False):
+            st.markdown("""
+            <div style="margin-bottom: 14px; color: #475569; font-size: 13.5px; line-height: 1.6;">
+                Chúng tôi luôn lắng nghe và trân trọng mọi ý kiến phản hồi từ các nhà nghiên cứu, giảng viên và sinh viên để liên tục hoàn thiện ứng dụng.
+                Mọi ý kiến của bạn sẽ được gửi trực tiếp và lưu trữ an toàn trong cơ sở dữ liệu SmartResearch Studio.
+            </div>
+            """, unsafe_allow_html=True)
             
-            fb_content = st.text_area(
-                "Nội dung góp ý chi tiết *:",
-                placeholder="Chia sẻ nhận xét, đề xuất tính năng hoặc khó khăn bạn gặp phải khi sử dụng ứng dụng...",
-                height=110,
-                key=f"fb_content_{key_suffix}"
-            )
-            
-            fb_submit = st.form_submit_button("Gửi ý kiến đóng góp", use_container_width=True, type="primary")
-            
-            if fb_submit:
-                if not fb_content.strip():
-                    st.error("Vui lòng nhập nội dung góp ý trước khi gửi.")
-                else:
-                    with st.spinner("Đang gửi ý kiến đóng góp..."):
-                        success, msg = send_feedback_to_firestore(
-                            name=fb_name,
-                            email=fb_email,
-                            role=fb_role,
-                            topic=fb_topic,
-                            rating=fb_rating,
-                            content=fb_content
-                        )
-                    if success:
-                        st.success("Cảm ơn bạn rất nhiều! Ý kiến đóng góp của bạn đã được ghi nhận về cho đội ngũ phát triển.")
-                    elif msg == "PERMISSION_DENIED":
-                        st.warning(
-                            "Ý kiến của bạn đã được ghi nhận vào phiên làm việc! "
-                            "(Lưu ý quản trị viên: Cơ sở dữ liệu Firestore hiện chưa mở quyền ghi cho bảng 'feedbacks'. "
-                            "Vui lòng cập nhật Rules trên Firebase Console theo hướng dẫn để lưu trực tiếp vào đám mây)."
-                        )
+            with st.form(f"feedback_form_{key_suffix}", clear_on_submit=True):
+                fb_col1, fb_col2 = st.columns([1, 1])
+                with fb_col1:
+                    fb_name = st.text_input("Họ và tên (Tùy chọn):", placeholder="Ví dụ: Nguyễn Văn A", key=f"fb_name_{key_suffix}")
+                    fb_email = st.text_input("Email liên hệ (Tùy chọn):", placeholder="email@example.com", key=f"fb_email_{key_suffix}")
+                    fb_role = st.selectbox(
+                        "Vai trò nghiên cứu của bạn:",
+                        [
+                            "Giảng viên / Nhà nghiên cứu",
+                            "Nghiên cứu sinh / Học viên Cao học",
+                            "Sinh viên đại học",
+                            "Chuyên viên Phân tích Dữ liệu (Data Analyst)",
+                            "Khác"
+                        ],
+                        key=f"fb_role_{key_suffix}"
+                    )
+                with fb_col2:
+                    fb_topic = st.selectbox(
+                        "Chủ đề đóng góp:",
+                        [
+                            "Đề xuất tính năng mới",
+                            "Báo lỗi tính toán / Số liệu",
+                            "Cải thiện giao diện & Trải nghiệm",
+                            "Yêu cầu thêm mô hình thống kê / Machine Learning",
+                            "Góp ý tài liệu & Diễn giải học thuật",
+                            "Ý kiến đóng góp khác"
+                        ],
+                        key=f"fb_topic_{key_suffix}"
+                    )
+                    fb_rating = st.select_slider(
+                        "Mức độ hài lòng chung về ứng dụng:",
+                        options=[1, 2, 3, 4, 5],
+                        value=5,
+                        format_func=lambda x: f"{x} ⭐" + (" (Rất hài lòng)" if x == 5 else " (Hài lòng)" if x == 4 else " (Bình thường)" if x == 3 else " (Chưa hài lòng)" if x == 2 else " (Rất không hài lòng)"),
+                        key=f"fb_rating_{key_suffix}"
+                    )
+                
+                fb_content = st.text_area(
+                    "Nội dung góp ý chi tiết *:",
+                    placeholder="Chia sẻ nhận xét, đề xuất tính năng hoặc khó khăn bạn gặp phải khi sử dụng ứng dụng...",
+                    height=110,
+                    key=f"fb_content_{key_suffix}"
+                )
+                
+                fb_submit = st.form_submit_button("Gửi ý kiến đóng góp", use_container_width=True, type="primary")
+                
+                if fb_submit:
+                    if not fb_content.strip():
+                        st.error("Vui lòng nhập nội dung góp ý trước khi gửi.")
                     else:
-                        st.error(f"Không thể gửi lên Firebase: {msg}")
+                        with st.spinner("Đang gửi ý kiến đóng góp..."):
+                            success, msg = send_feedback_to_firestore(
+                                name=fb_name,
+                                email=fb_email,
+                                role=fb_role,
+                                topic=fb_topic,
+                                rating=fb_rating,
+                                content=fb_content
+                            )
+                        if success:
+                            st.success("Cảm ơn bạn rất nhiều! Ý kiến đóng góp của bạn đã được ghi nhận về cho đội ngũ phát triển.")
+                        elif msg == "PERMISSION_DENIED":
+                            st.warning(
+                                "Ý kiến của bạn đã được ghi nhận vào phiên làm việc! "
+                                "(Lưu ý quản trị viên: Cơ sở dữ liệu Firestore hiện chưa mở quyền ghi cho bảng 'feedbacks'. "
+                                "Vui lòng cập nhật Rules trên Firebase Console theo hướng dẫn để lưu trực tiếp vào đám mây)."
+                            )
+                        else:
+                            st.error(f"Không thể gửi lên Firebase: {msg}")
 
 
 if df is None:
@@ -710,7 +713,7 @@ if df is None:
 
 
 # ---------------- MENU 1: QUẢN LÝ DỮ LIỆU ----------------
-if menu == "📂 1. Quản lý & Khảo sát Dữ liệu":
+if menu == "1. Quản lý & Khảo sát Dữ liệu":
     st.markdown("### 1. Quản lý & Khảo sát Dữ liệu (Data Dictionary)")
     
     col1, col2, col3, col4 = st.columns(4)
@@ -801,7 +804,7 @@ if menu == "📂 1. Quản lý & Khảo sát Dữ liệu":
 
 
 # ---------------- MENU 2: TIỀN XỬ LÝ: MÃ HÓA & LÀM SẠCH DỮ LIỆU ----------------
-elif menu == "🧹 2. Tiền xử lý: Mã hóa & Làm sạch dữ liệu":
+elif menu == "2. Tiền xử lý: Mã hóa & Làm sạch dữ liệu":
     st.markdown("### 2. Tiền xử lý: Mã hóa Cột & Làm sạch Dữ liệu (Data Cleaning & Preparation)")
     st.markdown("""
     <div style="color: #475569; font-size: 14px; margin-bottom: 16px; line-height: 1.6;">
@@ -1208,7 +1211,7 @@ elif menu == "🧹 2. Tiền xử lý: Mã hóa & Làm sạch dữ liệu":
 
 
 # ---------------- MENU 3: THỐNG KÊ MÔ TẢ & NHÂN KHẨU HỌC ----------------
-elif menu == "📊 3. Thống kê Nhân khẩu học & Mô tả":
+elif menu == "3. Thống kê Nhân khẩu học & Mô tả":
     st.markdown("### 3. Thống kê Mô tả & Phân tích Cơ cấu Mẫu (Demographics)")
     
     tab_demo, tab_likert = st.tabs(["Biến Định tính / Nhân khẩu học", "Biến Định lượng / Thang đo Likert"])
@@ -1416,7 +1419,7 @@ elif menu == "📊 3. Thống kê Nhân khẩu học & Mô tả":
 
 
 # ---------------- MENU 4: CRONBACH'S ALPHA ----------------
-elif menu == "🔬 4. Độ tin cậy thang đo (Cronbach's Alpha)":
+elif menu == "4. Độ tin cậy thang đo (Cronbach's Alpha)":
     st.markdown("### 4. Kiểm định Độ tin cậy Thang đo (Cronbach's Alpha)")
     st.markdown(r"""
     **Quy chuẩn học thuật (Nunnally & Bernstein 1994, Hair et al. 2022):**
@@ -1564,7 +1567,7 @@ elif menu == "🔬 4. Độ tin cậy thang đo (Cronbach's Alpha)":
 
 
 # ---------------- MENU 5: T-TEST & ANOVA ----------------
-elif menu == "⚖️ 5. So sánh Trung bình (T-Test & ANOVA)":
+elif menu == "5. So sánh Trung bình (T-Test & ANOVA)":
     st.markdown("### 5. Kiểm định So sánh Trung bình (T-Test & ANOVA)")
     
     test_type = st.radio("Chọn loại phép thử so sánh:", ["Independent Samples T-Test (2 nhóm)", "One-Way ANOVA (>= 2 nhóm)"], horizontal=True)
@@ -1628,7 +1631,7 @@ elif menu == "⚖️ 5. So sánh Trung bình (T-Test & ANOVA)":
 
 
 # ---------------- MENU 6: EFA ----------------
-elif menu == "🧩 6. Phân tích Nhân tố Khám phá (EFA)":
+elif menu == "6. Phân tích Nhân tố Khám phá (EFA)":
     st.markdown("### 6. Phân tích Nhân tố Khám phá (Exploratory Factor Analysis - EFA)")
     st.markdown(r"""
     **Tiêu chuẩn kiểm định EFA:**
@@ -1813,7 +1816,7 @@ elif menu == "🧩 6. Phân tích Nhân tố Khám phá (EFA)":
 
 
 # ---------------- MENU 7: CFA & CB-SEM ----------------
-elif menu == "🏛️ 7. CFA & CB-SEM (Mô hình hiệp phương sai)":
+elif menu == "7. CFA & CB-SEM (Mô hình hiệp phương sai)":
     st.markdown("### 7. Phân tích Nhân tố Khẳng định (CFA) & Mô hình CB-SEM")
     st.markdown(r"""
     **Quy chuẩn kiểm định AMOS/semopy (Hu & Bentler 1999, Hair et al. 2022):**
@@ -1938,7 +1941,7 @@ elif menu == "🏛️ 7. CFA & CB-SEM (Mô hình hiệp phương sai)":
 
 
 # ---------------- MENU 8: PLS-SEM ----------------
-elif menu == "⚡ 8. PLS-SEM (Bình phương bé nhất từng phần)":
+elif menu == "8. PLS-SEM (Bình phương bé nhất từng phần)":
     st.markdown("### 8. Mô hình Cấu trúc Tuyến tính PLS-SEM (SmartPLS Algorithm)")
     st.markdown(r"""
     **Chuẩn mực thuật toán Wold's PLS & Hair et al. (2022):**
@@ -2011,7 +2014,7 @@ elif menu == "⚡ 8. PLS-SEM (Bình phương bé nhất từng phần)":
 
 
 # ---------------- MENU 9: MACHINE LEARNING & AI NCKH ----------------
-elif menu == "🤖 9. Machine Learning trong NCKH":
+elif menu == "9. Machine Learning trong NCKH":
     st.markdown("### 9. Trí tuệ Nhân tạo & Machine Learning trong NCKH (AI Research Suite)")
     st.markdown("""
     Nền tảng tích hợp toàn diện các phương pháp **Học có giám sát**, **Học không giám sát**, **Mạng nơ-ron** và **Xử lý ngôn ngữ tự nhiên (NLP)**.
@@ -2457,7 +2460,7 @@ elif menu == "🤖 9. Machine Learning trong NCKH":
 
 
 # ---------------- MENU 10: XUẤT BÁO CÁO ----------------
-elif menu == "📑 10. Xuất Báo cáo Học thuật (Word/Excel)":
+elif menu == "10. Xuất Báo cáo Học thuật (Word/Excel)":
     st.markdown("### 10. Xuất Báo cáo Kết quả Nghiên cứu Chuẩn Học thuật APA 7th Edition")
     st.markdown("""
     Xuất trực tiếp toàn bộ các bảng thống kê và đoạn văn thuyết minh học thuật tự động sang:

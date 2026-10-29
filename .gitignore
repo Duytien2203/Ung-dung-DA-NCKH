@@ -36,7 +36,6 @@ venv.bak/
 
 # Streamlit local config & credentials
 .streamlit/secrets.toml
-.streamlit/credentials.toml
 
 # IDE & Editor settings
 .vscode/

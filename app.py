@@ -532,7 +532,7 @@ def render_page_footer(key_suffix: str = ""):
         st.markdown("""
         <div style="margin-bottom: 14px; color: #334155; font-size: 13.5px; line-height: 1.6;">
             Chúng tôi luôn lắng nghe và trân trọng mọi ý kiến phản hồi từ các nhà nghiên cứu, giảng viên và sinh viên để liên tục hoàn thiện ứng dụng.
-            Mọi ý kiến của bạn sẽ được gửi trực tiếp và lưu trữ an toàn trong cơ sở dữ liệu Firebase.
+            Mọi ý kiến của bạn sẽ được gửi trực tiếp và lưu trữ an toàn trong cơ sở dữ liệu SmartResearch Studio.
         </div>
         """, unsafe_allow_html=True)
         
@@ -586,7 +586,7 @@ def render_page_footer(key_suffix: str = ""):
                 if not fb_content.strip():
                     st.error("Vui lòng nhập nội dung góp ý trước khi gửi.")
                 else:
-                    with st.spinner("Đang gửi ý kiến đến cơ sở dữ liệu Firebase..."):
+                    with st.spinner("Đang gửi ý kiến đóng góp..."):
                         success, msg = send_feedback_to_firestore(
                             name=fb_name,
                             email=fb_email,
@@ -596,7 +596,7 @@ def render_page_footer(key_suffix: str = ""):
                             content=fb_content
                         )
                     if success:
-                        st.success("Cảm ơn bạn rất nhiều! Ý kiến đóng góp của bạn đã được ghi nhận vào cơ sở dữ liệu Firebase.")
+                        st.success("Cảm ơn bạn rất nhiều! Ý kiến đóng góp của bạn đã được ghi nhận về cho đội ngũ phát triển.")
                     elif msg == "PERMISSION_DENIED":
                         st.warning(
                             "Ý kiến của bạn đã được ghi nhận vào phiên làm việc! "

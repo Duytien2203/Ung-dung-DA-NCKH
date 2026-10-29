@@ -53,13 +53,13 @@ from scipy.cluster.hierarchy import linkage, dendrogram
 try:
     import xgboost as xgb
     HAS_XGBOOST = True
-except ImportError:
+except Exception:
     HAS_XGBOOST = False
 
 try:
     import lightgbm as lgb
     HAS_LIGHTGBM = True
-except ImportError:
+except Exception:
     HAS_LIGHTGBM = False
 
 

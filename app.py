@@ -77,10 +77,7 @@ def get_image_b64(path: str) -> str:
 LOGO_DARK_SRC = f"data:image/png;base64,{get_image_b64(logo_dark_path)}"
 LOGO_LIGHT_SRC = f"data:image/png;base64,{get_image_b64(logo_light_path)}"
 
-# Initialize Firebase & Google Analytics
-inject_firebase_analytics()
-
-# Load CSS
+# Load Custom CSS First for Instant Ergonomic Layout
 css_path = os.path.join(os.path.dirname(__file__), "assets", "style.css")
 if os.path.exists(css_path):
     with open(css_path, "r", encoding="utf-8") as f:
@@ -317,8 +314,40 @@ def render_sem_diagram(paths: list, r2_dict: dict = None, title: str = "Sơ đ�
 
 _table_render_counter = 0
 
+MENU_LIST = [
+    "📂 1. Quản lý & Khảo sát Dữ liệu",
+    "🧹 2. Tiền xử lý: Mã hóa & Làm sạch dữ liệu",
+    "📊 3. Thống kê Nhân khẩu học & Mô tả",
+    "🔬 4. Độ tin cậy thang đo (Cronbach's Alpha)",
+    "⚖️ 5. So sánh Trung bình (T-Test & ANOVA)",
+    "🧩 6. Phân tích Nhân tố Khám phá (EFA)",
+    "🏛️ 7. CFA & CB-SEM (Mô hình hiệp phương sai)",
+    "⚡ 8. PLS-SEM (Bình phương bé nhất từng phần)",
+    "🤖 9. Machine Learning trong NCKH",
+    "📑 10. Xuất Báo cáo Học thuật (Word/Excel)"
+]
+
+STEP_NAMES = [
+    "Dữ liệu",
+    "Tiền xử lý",
+    "Thống kê mô tả",
+    "Cronbach's Alpha",
+    "T-Test & ANOVA",
+    "EFA",
+    "CFA / CB-SEM",
+    "PLS-SEM",
+    "Machine Learning",
+    "Xuất báo cáo"
+]
+
+if "active_step_num" not in st.session_state:
+    st.session_state.active_step_num = 1
+
 # ---------------- SIDEBAR ----------------
 with st.sidebar:
+    # Silent Firebase Web SDK & GA4 Tracking Initialization in Sidebar
+    inject_firebase_analytics()
+
     logo_sidebar_html = f"""<img src="{LOGO_DARK_SRC}" style="height: 48px; width: auto; object-fit: contain;" alt="StaNDTistics Logo" />""" if LOGO_DARK_SRC else """<div style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 4px 10px rgba(37,99,235,0.4);">📊</div>"""
     st.markdown(f"""
     <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
@@ -332,20 +361,20 @@ with st.sidebar:
     
     st.markdown("---")
     
+    def on_sidebar_radio_change():
+        chosen = st.session_state.sidebar_menu_radio
+        if chosen in MENU_LIST:
+            st.session_state.active_step_num = MENU_LIST.index(chosen) + 1
+            st.session_state.stepper_pills_val = st.session_state.active_step_num
+
+    if "sidebar_menu_radio" not in st.session_state:
+        st.session_state.sidebar_menu_radio = MENU_LIST[st.session_state.active_step_num - 1]
+
     menu = st.radio(
         "QUY TRÌNH PHÂN TÍCH NCKH",
-        [
-            "📂 1. Quản lý & Khảo sát Dữ liệu",
-            "🧹 2. Tiền xử lý: Mã hóa & Làm sạch dữ liệu",
-            "📊 3. Thống kê Nhân khẩu học & Mô tả",
-            "🔬 4. Độ tin cậy thang đo (Cronbach's Alpha)",
-            "⚖️ 5. So sánh Trung bình (T-Test & ANOVA)",
-            "🧩 6. Phân tích Nhân tố Khám phá (EFA)",
-            "🏛️ 7. CFA & CB-SEM (Mô hình hiệp phương sai)",
-            "⚡ 8. PLS-SEM (Bình phương bé nhất từng phần)",
-            "🤖 9. Machine Learning trong NCKH",
-            "📑 10. Xuất Báo cáo Học thuật (Word/Excel)"
-        ]
+        MENU_LIST,
+        key="sidebar_menu_radio",
+        on_change=on_sidebar_radio_change
     )
     
     st.markdown("---")
@@ -453,50 +482,25 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Workflow Stepper Visual (10 Steps matching Left Sidebar exactly - no emoji icons)
-st.markdown(f"""
-<div class="workflow-stepper">
-    <div class="step-item {'active' if current_step == 1 else ''}">
-        <span class="step-num">1</span> Dữ liệu
-    </div>
-    <div class="step-divider">›</div>
-    <div class="step-item {'active' if current_step == 2 else ''}">
-        <span class="step-num">2</span> Tiền xử lý
-    </div>
-    <div class="step-divider">›</div>
-    <div class="step-item {'active' if current_step == 3 else ''}">
-        <span class="step-num">3</span> Thống kê mô tả
-    </div>
-    <div class="step-divider">›</div>
-    <div class="step-item {'active' if current_step == 4 else ''}">
-        <span class="step-num">4</span> Cronbach's Alpha
-    </div>
-    <div class="step-divider">›</div>
-    <div class="step-item {'active' if current_step == 5 else ''}">
-        <span class="step-num">5</span> T-Test & ANOVA
-    </div>
-    <div class="step-divider">›</div>
-    <div class="step-item {'active' if current_step == 6 else ''}">
-        <span class="step-num">6</span> EFA
-    </div>
-    <div class="step-divider">›</div>
-    <div class="step-item {'active' if current_step == 7 else ''}">
-        <span class="step-num">7</span> CFA / CB-SEM
-    </div>
-    <div class="step-divider">›</div>
-    <div class="step-item {'active' if current_step == 8 else ''}">
-        <span class="step-num">8</span> PLS-SEM
-    </div>
-    <div class="step-divider">›</div>
-    <div class="step-item {'active' if current_step == 9 else ''}">
-        <span class="step-num">9</span> Machine Learning
-    </div>
-    <div class="step-divider">›</div>
-    <div class="step-item {'active' if current_step == 10 else ''}">
-        <span class="step-num">10</span> Xuất báo cáo
-    </div>
-</div>
-""", unsafe_allow_html=True)
+# Workflow Stepper Interactive Navigation (10 Steps matching Left Sidebar exactly - Clickable)
+if "stepper_pills_val" not in st.session_state:
+    st.session_state.stepper_pills_val = current_step
+
+def on_stepper_change():
+    new_step = st.session_state.stepper_pills_val
+    if new_step:
+        st.session_state.active_step_num = new_step
+        st.session_state.sidebar_menu_radio = MENU_LIST[new_step - 1]
+
+stepper_selected = st.pills(
+    "Workflow Navigation Stepper",
+    options=list(range(1, 11)),
+    default=current_step,
+    format_func=lambda x: f"{x}. {STEP_NAMES[x-1]}",
+    key="stepper_pills_val",
+    on_change=on_stepper_change,
+    label_visibility="collapsed"
+)
 
 
 def render_page_footer(key_suffix: str = ""):
@@ -754,10 +758,42 @@ if menu == "📂 1. Quản lý & Khảo sát Dữ liệu":
         </div>
         """, unsafe_allow_html=True)
 
-    tab_data, tab_dict = st.tabs(["Xem Bảng Dữ liệu (100 Quan sát đầu tiên)", "Từ điển Biến & Nhãn SPSS (Variable Metadata)"])
+    tab_data, tab_dict = st.tabs([f"Xem Toàn bộ Bảng Dữ liệu ({len(df):,} quan sát)", "Từ điển Biến & Nhãn SPSS (Variable Metadata)"])
     
     with tab_data:
-        render_table(df.head(100), file_name="Du_lieu_100_dong_dau.xlsx", sheet_name="Du_lieu_mau", height=450)
+        col_info, col_filter = st.columns([3, 1])
+        with col_info:
+            st.markdown(f"""
+            <div style="font-size: 13.5px; color: #475569; margin-bottom: 8px;">
+                Đang hiển thị <b>{len(df):,}</b> quan sát và <b>{len(df.columns)}</b> biến số. Bạn có thể cuộn ngang/dọc, tìm kiếm, sắp xếp từng cột hoặc tải toàn bộ tệp Excel.
+            </div>
+            """, unsafe_allow_html=True)
+        with col_filter:
+            view_options = [f"Tất cả ({len(df):,} dòng)"]
+            if len(df) > 100:
+                view_options.append("100 dòng đầu")
+            if len(df) > 500:
+                view_options.append("500 dòng đầu")
+            selected_view = st.selectbox(
+                "Số dòng hiển thị:",
+                options=view_options,
+                index=0,
+                key="step1_row_view_selector",
+                label_visibility="collapsed"
+            )
+        
+        if selected_view == "100 dòng đầu":
+            display_df = df.head(100)
+            export_name = "Du_lieu_100_dong.xlsx"
+        elif selected_view == "500 dòng đầu":
+            display_df = df.head(500)
+            export_name = "Du_lieu_500_dong.xlsx"
+        else:
+            display_df = df
+            clean_name = os.path.splitext(loader.filename)[0] if loader.filename else "Du_lieu"
+            export_name = f"{clean_name}_toan_bo_{len(df)}_dong.xlsx"
+            
+        render_table(display_df, file_name=export_name, sheet_name="Du_lieu", height=520)
         
     with tab_dict:
         var_info = loader.get_variable_info()

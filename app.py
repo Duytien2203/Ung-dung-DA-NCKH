@@ -53,6 +53,7 @@ from core.data_cleaner import (
     recode_column_values, generate_codebook, export_cleaned_dataset_excel,
     LIKERT_PRESETS
 )
+from core.firebase_config import inject_firebase_analytics, FIREBASE_CONFIG
 
 
 # Page configuration
@@ -62,6 +63,9 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# Initialize Firebase & Google Analytics
+inject_firebase_analytics()
 
 # Load CSS
 css_path = os.path.join(os.path.dirname(__file__), "assets", "style.css")

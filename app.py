@@ -9,6 +9,7 @@ import sys
 import os
 import io
 import re
+import base64
 import mimetypes
 
 # Safe mimetypes initialization across Windows, Linux (Streamlit Cloud), and sandboxes
@@ -53,16 +54,28 @@ from core.data_cleaner import (
     recode_column_values, generate_codebook, export_cleaned_dataset_excel,
     LIKERT_PRESETS
 )
-from core.firebase_config import inject_firebase_analytics, FIREBASE_CONFIG
+from core.firebase_config import inject_firebase_analytics, FIREBASE_CONFIG, send_feedback_to_firestore
 
+# Brand Logo Configuration
+logo_dark_path = os.path.join(os.path.dirname(__file__), "assets", "logo_dark.png")
+logo_light_path = os.path.join(os.path.dirname(__file__), "assets", "logo_light.png")
 
 # Page configuration
 st.set_page_config(
-    page_title="SmartResearch Studio | Nền tảng Thống kê NCKH Xã hội",
-    page_icon="📊",
+    page_title="StaNDTistics | SmartResearch Studio NCKH",
+    page_icon=logo_light_path if os.path.exists(logo_light_path) else "📊",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+def get_image_b64(path: str) -> str:
+    if os.path.exists(path):
+        with open(path, "rb") as f:
+            return base64.b64encode(f.read()).decode("utf-8")
+    return ""
+
+LOGO_DARK_SRC = f"data:image/png;base64,{get_image_b64(logo_dark_path)}"
+LOGO_LIGHT_SRC = f"data:image/png;base64,{get_image_b64(logo_light_path)}"
 
 # Initialize Firebase & Google Analytics
 inject_firebase_analytics()
@@ -306,14 +319,13 @@ _table_render_counter = 0
 
 # ---------------- SIDEBAR ----------------
 with st.sidebar:
-    st.markdown("""
-    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
-        <div style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 4px 10px rgba(37,99,235,0.4);">
-            📊
-        </div>
+    logo_sidebar_html = f"""<img src="{LOGO_DARK_SRC}" style="height: 48px; width: auto; object-fit: contain;" alt="StaNDTistics Logo" />""" if LOGO_DARK_SRC else """<div style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); width: 36px; height: 36px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 18px; box-shadow: 0 4px 10px rgba(37,99,235,0.4);">📊</div>"""
+    st.markdown(f"""
+    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+        {logo_sidebar_html}
         <div>
-            <div style="font-weight: 800; font-size: 17px; color: white; letter-spacing: -0.3px;">SmartResearch</div>
-            <div style="font-size: 11px; color: #94a3b8; font-weight: 500;">STUDIO • v2.5</div>
+            <div style="font-weight: 800; font-size: 16.5px; color: white; letter-spacing: -0.3px;">SmartResearch</div>
+            <div style="font-size: 11px; color: #fb923c; font-weight: 700; letter-spacing: 0.5px;">StaNDTistics • v2.5</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -420,14 +432,17 @@ n_samples_str = f"{len(df):,} quan sát" if df is not None else "Chưa nạp d�
 filename_str = loader.filename if loader.filename else "Chưa chọn tệp"
 
 st.markdown(f"""
-<div class="pro-header" style="background: linear-gradient(135deg, #0b1120 0%, #1e293b 55%, #1d4ed8 100%); border-radius: 12px; padding: 24px 30px; margin-bottom: 20px; box-shadow: 0 10px 25px -5px rgba(11, 17, 32, 0.3); border: 1px solid rgba(255, 255, 255, 0.15);">
-    <div class="brand-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
-        <div>
-            <div class="brand-title" style="font-size: 25px; font-weight: 850; letter-spacing: -0.4px; margin: 0; color: #ffffff;">
-                <span>📊 SmartResearch Studio</span>
-            </div>
-            <div class="brand-subtitle" style="font-size: 13.5px; color: #cbd5e1; margin-top: 6px; font-weight: 500;">
-                Nền tảng Phân tích Thống kê Toàn diện & Mô hình Cấu trúc cho Nghiên cứu Khoa học Xã hội
+<div class="pro-header" style="background: linear-gradient(135deg, #0b1120 0%, #1e293b 55%, #1d4ed8 100%); border-radius: 12px; padding: 22px 28px; margin-bottom: 20px; box-shadow: 0 10px 25px -5px rgba(11, 17, 32, 0.3); border: 1px solid rgba(255, 255, 255, 0.15);">
+    <div class="brand-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+        <div style="display: flex; align-items: center; gap: 16px;">
+            {f'<img src="{LOGO_DARK_SRC}" style="height: 64px; width: auto; object-fit: contain;" alt="StaNDTistics Logo" />' if LOGO_DARK_SRC else ''}
+            <div>
+                <div class="brand-title" style="font-size: 24px; font-weight: 850; letter-spacing: -0.4px; margin: 0; color: #ffffff;">
+                    SmartResearch Studio
+                </div>
+                <div class="brand-subtitle" style="font-size: 13px; color: #cbd5e1; margin-top: 4px; font-weight: 500;">
+                    Nền tảng Phân tích Thống kê Toàn diện & Mô hình Cấu trúc cho Nghiên cứu Khoa học Xã hội
+                </div>
             </div>
         </div>
         <div class="meta-pill" style="background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.3); padding: 7px 16px; border-radius: 9999px; font-size: 12.5px; font-weight: 750; color: #ffffff; display: flex; align-items: center; gap: 8px;">
@@ -438,56 +453,165 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Workflow Stepper Visual (10 Steps matching Left Sidebar exactly)
+# Workflow Stepper Visual (10 Steps matching Left Sidebar exactly - no emoji icons)
 st.markdown(f"""
 <div class="workflow-stepper">
     <div class="step-item {'active' if current_step == 1 else ''}">
-        <span class="step-num">1</span> 📂 Dữ liệu
+        <span class="step-num">1</span> Dữ liệu
     </div>
     <div class="step-divider">›</div>
     <div class="step-item {'active' if current_step == 2 else ''}">
-        <span class="step-num">2</span> 🧹 Tiền xử lý
+        <span class="step-num">2</span> Tiền xử lý
     </div>
     <div class="step-divider">›</div>
     <div class="step-item {'active' if current_step == 3 else ''}">
-        <span class="step-num">3</span> 📊 Thống kê mô tả
+        <span class="step-num">3</span> Thống kê mô tả
     </div>
     <div class="step-divider">›</div>
     <div class="step-item {'active' if current_step == 4 else ''}">
-        <span class="step-num">4</span> 🔬 Cronbach's Alpha
+        <span class="step-num">4</span> Cronbach's Alpha
     </div>
     <div class="step-divider">›</div>
     <div class="step-item {'active' if current_step == 5 else ''}">
-        <span class="step-num">5</span> ⚖️ T-Test & ANOVA
+        <span class="step-num">5</span> T-Test & ANOVA
     </div>
     <div class="step-divider">›</div>
     <div class="step-item {'active' if current_step == 6 else ''}">
-        <span class="step-num">6</span> 🧩 EFA
+        <span class="step-num">6</span> EFA
     </div>
     <div class="step-divider">›</div>
     <div class="step-item {'active' if current_step == 7 else ''}">
-        <span class="step-num">7</span> 🏛️ CFA / CB-SEM
+        <span class="step-num">7</span> CFA / CB-SEM
     </div>
     <div class="step-divider">›</div>
     <div class="step-item {'active' if current_step == 8 else ''}">
-        <span class="step-num">8</span> ⚡ PLS-SEM
+        <span class="step-num">8</span> PLS-SEM
     </div>
     <div class="step-divider">›</div>
     <div class="step-item {'active' if current_step == 9 else ''}">
-        <span class="step-num">9</span> 🤖 Machine Learning
+        <span class="step-num">9</span> Machine Learning
     </div>
     <div class="step-divider">›</div>
     <div class="step-item {'active' if current_step == 10 else ''}">
-        <span class="step-num">10</span> 📑 Xuất báo cáo
+        <span class="step-num">10</span> Xuất báo cáo
     </div>
 </div>
 """, unsafe_allow_html=True)
 
 
+def render_page_footer(key_suffix: str = ""):
+    """Renders professional brand footer with StaNDTistics logo, followed by user feedback form at the very bottom."""
+    # ---------------- PROFESSIONAL BRAND FOOTER ----------------
+    logo_footer_html = f"""<img src="{LOGO_LIGHT_SRC}" style="height: 60px; width: auto; object-fit: contain;" alt="StaNDTistics Logo" />""" if LOGO_LIGHT_SRC else ""
+    st.markdown(f"""
+    <div class="pro-footer">
+        <div class="footer-left" style="display: flex; align-items: center; gap: 16px;">
+            {logo_footer_html}
+            <div>
+                <div class="footer-brand" style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-weight: 850; color: #0f172a; font-size: 15.5px;">SmartResearch Studio</span>
+                    <span style="font-weight: 500; color: #64748b; font-size: 12.5px;">• Phiên bản 2.5 Academic Edition</span>
+                </div>
+                <div class="footer-desc" style="color: #475569; font-size: 12.5px; margin-top: 3px;">
+                    Nền tảng xử lý dữ liệu và kiểm định mô hình phương trình cấu trúc (CB-SEM & PLS-SEM) cho Nghiên cứu Khoa học Xã hội.
+                </div>
+            </div>
+        </div>
+        <div>
+            <div class="author-badge" style="display: flex; align-items: center; gap: 8px; padding: 7px 16px;">
+                <span style="color: #64748b; font-size: 12.5px;">Thiết kế & Phát triển bởi</span>
+                <span class="author-name" style="font-weight: 800; color: #1d4ed8; font-size: 13.5px;">NgDuyTien</span>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ---------------- ĐÓNG GÓP Ý KIẾN Ở DƯỚI CÙNG TRANG WEB ----------------
+    st.markdown("<div style='margin-top: 18px;'></div>", unsafe_allow_html=True)
+    with st.expander("Đóng góp ý kiến phát triển SmartResearch Studio", expanded=False):
+        st.markdown("""
+        <div style="margin-bottom: 14px; color: #334155; font-size: 13.5px; line-height: 1.6;">
+            Chúng tôi luôn lắng nghe và trân trọng mọi ý kiến phản hồi từ các nhà nghiên cứu, giảng viên và sinh viên để liên tục hoàn thiện ứng dụng.
+            Mọi ý kiến của bạn sẽ được gửi trực tiếp và lưu trữ an toàn trong cơ sở dữ liệu Firebase.
+        </div>
+        """, unsafe_allow_html=True)
+        
+        with st.form(f"feedback_form_{key_suffix}", clear_on_submit=True):
+            fb_col1, fb_col2 = st.columns([1, 1])
+            with fb_col1:
+                fb_name = st.text_input("Họ và tên (Tùy chọn):", placeholder="Ví dụ: Nguyễn Văn A", key=f"fb_name_{key_suffix}")
+                fb_email = st.text_input("Email liên hệ (Tùy chọn):", placeholder="email@example.com", key=f"fb_email_{key_suffix}")
+                fb_role = st.selectbox(
+                    "Vai trò nghiên cứu của bạn:",
+                    [
+                        "Giảng viên / Nhà nghiên cứu",
+                        "Nghiên cứu sinh / Học viên Cao học",
+                        "Sinh viên đại học",
+                        "Chuyên viên Phân tích Dữ liệu (Data Analyst)",
+                        "Khác"
+                    ],
+                    key=f"fb_role_{key_suffix}"
+                )
+            with fb_col2:
+                fb_topic = st.selectbox(
+                    "Chủ đề đóng góp:",
+                    [
+                        "Đề xuất tính năng mới",
+                        "Báo lỗi tính toán / Số liệu",
+                        "Cải thiện giao diện & Trải nghiệm",
+                        "Yêu cầu thêm mô hình thống kê / Machine Learning",
+                        "Góp ý tài liệu & Diễn giải học thuật",
+                        "Ý kiến đóng góp khác"
+                    ],
+                    key=f"fb_topic_{key_suffix}"
+                )
+                fb_rating = st.select_slider(
+                    "Mức độ hài lòng chung về ứng dụng:",
+                    options=[1, 2, 3, 4, 5],
+                    value=5,
+                    format_func=lambda x: f"{x} ⭐" + (" (Rất hài lòng)" if x == 5 else " (Hài lòng)" if x == 4 else " (Bình thường)" if x == 3 else " (Chưa hài lòng)" if x == 2 else " (Rất không hài lòng)"),
+                    key=f"fb_rating_{key_suffix}"
+                )
+            
+            fb_content = st.text_area(
+                "Nội dung góp ý chi tiết *:",
+                placeholder="Chia sẻ nhận xét, đề xuất tính năng hoặc khó khăn bạn gặp phải khi sử dụng ứng dụng...",
+                height=110,
+                key=f"fb_content_{key_suffix}"
+            )
+            
+            fb_submit = st.form_submit_button("Gửi ý kiến đóng góp", use_container_width=True, type="primary")
+            
+            if fb_submit:
+                if not fb_content.strip():
+                    st.error("Vui lòng nhập nội dung góp ý trước khi gửi.")
+                else:
+                    with st.spinner("Đang gửi ý kiến đến cơ sở dữ liệu Firebase..."):
+                        success, msg = send_feedback_to_firestore(
+                            name=fb_name,
+                            email=fb_email,
+                            role=fb_role,
+                            topic=fb_topic,
+                            rating=fb_rating,
+                            content=fb_content
+                        )
+                    if success:
+                        st.success("Cảm ơn bạn rất nhiều! Ý kiến đóng góp của bạn đã được ghi nhận vào cơ sở dữ liệu Firebase.")
+                    elif msg == "PERMISSION_DENIED":
+                        st.warning(
+                            "Ý kiến của bạn đã được ghi nhận vào phiên làm việc! "
+                            "(Lưu ý quản trị viên: Cơ sở dữ liệu Firestore hiện chưa mở quyền ghi cho bảng 'feedbacks'. "
+                            "Vui lòng cập nhật Rules trên Firebase Console theo hướng dẫn để lưu trực tiếp vào đám mây)."
+                        )
+                    else:
+                        st.error(f"Không thể gửi lên Firebase: {msg}")
+
+
 if df is None:
-    st.markdown("""
-    <div class="content-box" style="text-align: center; padding: 40px 24px 20px 24px;">
-        <div style="font-size: 48px; margin-bottom: 12px;">📁</div>
+    welcome_logo_html = f'<div style="margin-bottom: 20px;"><img src="{LOGO_LIGHT_SRC}" style="height: 110px; width: auto; object-fit: contain;" alt="StaNDTistics Logo" /></div>' if LOGO_LIGHT_SRC else '<div style="font-size: 48px; margin-bottom: 12px;">📁</div>'
+    st.markdown(f"""
+    <div class="content-box" style="text-align: center; padding: 36px 24px 20px 24px;">
+        {welcome_logo_html}
         <h3 style="font-size: 22px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">Chào mừng bạn đến với SmartResearch Studio</h3>
         <p style="color: #475569; font-size: 15px; max-width: 650px; margin: 0 auto 20px auto; line-height: 1.6;">
             Hệ thống chuyên sâu phân tích định lượng NCKH xã hội theo chuẩn học thuật APA 7th Edition. Hỗ trợ tệp <b>Excel (.xlsx, .xls, .csv)</b> và <b>SPSS (.sav, .zsav)</b> với bảo toàn nhãn biến.
@@ -536,6 +660,48 @@ if df is None:
             st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
+    # Features overview highlights cards
+    st.markdown("""
+    <div style="margin-top: 26px; margin-bottom: 12px; font-weight: 800; font-size: 16px; color: #0f172a;">
+        Hệ sinh thái Tính năng Phân tích Nghiên cứu Toàn diện
+    </div>
+    """, unsafe_allow_html=True)
+    
+    f1, f2, f3, f4 = st.columns(4)
+    with f1:
+        st.markdown("""
+        <div class="pro-kpi-card" style="padding: 16px;">
+            <div style="font-size: 13.5px; font-weight: 800; color: #1e3a8a; margin-bottom: 6px;">Quản lý & Tiền xử lý</div>
+            <div style="font-size: 12.5px; color: #475569; line-height: 1.5;">Hỗ trợ Excel & SPSS (.sav), làm sạch dữ liệu, mã hóa thang đo Likert, lọc ngoại lai và lập Codebook học thuật.</div>
+            <div class="kpi-badge badge-info" style="margin-top: 10px;">Bước 1 - 2</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with f2:
+        st.markdown("""
+        <div class="pro-kpi-card" style="padding: 16px;">
+            <div style="font-size: 13.5px; font-weight: 800; color: #065f46; margin-bottom: 6px;">Thống kê & Thang đo</div>
+            <div style="font-size: 12.5px; color: #475569; line-height: 1.5;">Cơ cấu nhân khẩu, Skewness/Kurtosis, Cronbach's Alpha, T-Test/ANOVA, EFA ma trận xoay chuẩn SPSS.</div>
+            <div class="kpi-badge badge-success" style="margin-top: 10px;">Bước 3 - 6</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with f3:
+        st.markdown("""
+        <div class="pro-kpi-card" style="padding: 16px;">
+            <div style="font-size: 13.5px; font-weight: 800; color: #92400e; margin-bottom: 6px;">CB-SEM & PLS-SEM</div>
+            <div style="font-size: 12.5px; color: #475569; line-height: 1.5;">Kiểm định CFA (CMIN/df, CFI, RMSEA), PLS-SEM Wold's 2022, Bootstrapping, HTMT, Mediation trung gian.</div>
+            <div class="kpi-badge badge-warning" style="margin-top: 10px;">Bước 7 - 8</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with f4:
+        st.markdown("""
+        <div class="pro-kpi-card" style="padding: 16px;">
+            <div style="font-size: 13.5px; font-weight: 800; color: #6b21a8; margin-bottom: 6px;">AI & Báo cáo APA 7th</div>
+            <div style="font-size: 12.5px; color: #475569; line-height: 1.5;">Thuật toán XGBoost, Random Forest, phân tích cảm xúc, tự động xuất báo cáo trọn bộ sang Word & Excel.</div>
+            <div class="kpi-badge badge-info" style="margin-top: 10px;">Bước 9 - 10</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    render_page_footer(key_suffix="welcome")
     st.stop()
 
 
@@ -2307,23 +2473,5 @@ elif menu == "📑 10. Xuất Báo cáo Học thuật (Word/Excel)":
             )
 
 
-# ---------------- PROFESSIONAL BRAND FOOTER ----------------
-st.markdown("""
-<div class="pro-footer">
-    <div class="footer-left">
-        <div class="footer-brand">
-            <span>📊 SmartResearch Studio</span>
-            <span style="font-weight: 400; color: #94a3b8;">• Phiên bản 2.5 Academic Edition</span>
-        </div>
-        <div class="footer-desc">
-            Phần mềm xử lý dữ liệu và kiểm định mô hình phương trình cấu trúc (CB-SEM & PLS-SEM) cho Nghiên cứu Khoa học Xã hội.
-        </div>
-    </div>
-    <div>
-        <div class="author-badge">
-            <span style="color: #64748b;">⚡ Thiết kế & Phát triển bởi</span>
-            <span class="author-name">NgDuyTien</span>
-        </div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
+# ---------------- GÓP Ý & BRAND FOOTER ----------------
+render_page_footer(key_suffix="main")

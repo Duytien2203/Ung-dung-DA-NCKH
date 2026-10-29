@@ -716,15 +716,56 @@ html, body, .stApp {
     transform: translateY(-1px) !important;
 }
 
-/* Expander */
-.streamlit-expanderHeader {
+/* --- STREAMLIT EXPANDER (LIGHT & ELEGANT WHITE CARD) --- */
+.streamlit-expanderHeader,
+[data-testid="stExpander"] {
     background-color: #ffffff !important;
     border: 1.5px solid #cbd5e1 !important;
+    border-radius: 9px !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
+    overflow: hidden !important;
+    transition: all 0.2s ease !important;
+}
+
+[data-testid="stExpander"]:hover {
+    border-color: #94a3b8 !important;
+}
+
+[data-testid="stExpander"] summary {
+    background-color: #ffffff !important;
     border-radius: 8px !important;
-    font-weight: 800 !important;
+    padding: 11px 16px !important;
+    transition: all 0.15s ease !important;
+}
+
+[data-testid="stExpander"] summary:hover {
+    background-color: #f8fafc !important;
+}
+
+[data-testid="stExpander"] summary:hover p,
+[data-testid="stExpander"] summary:hover span {
+    color: #1d4ed8 !important;
+}
+
+[data-testid="stExpander"] summary p,
+[data-testid="stExpander"] summary span {
+    font-weight: 500 !important;
     font-size: 14.5px !important;
-    color: #0f172a !important;
-    padding: 10px 16px !important;
+    color: #334155 !important;
+    letter-spacing: 0 !important;
+}
+
+[data-testid="stExpander"] summary svg {
+    fill: #64748b !important;
+    stroke: #64748b !important;
+    width: 17px !important;
+    height: 17px !important;
+}
+
+[data-testid="stExpander"] [data-testid="stExpanderDetails"] {
+    background-color: #ffffff !important;
+    padding: 16px 20px 20px 20px !important;
+    border-top: 1px solid #e2e8f0 !important;
 }
 
 /* --- FOOTER --- */

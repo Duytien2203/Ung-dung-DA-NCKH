@@ -5,6 +5,10 @@ Measurement ID: G-17SYW8V8HM
 """
 
 import streamlit.components.v1 as components
+import json
+import urllib.request
+import urllib.error
+import datetime
 
 FIREBASE_CONFIG = {
     "apiKey": "AIzaSyDyS1DehH4KmEri-CzriVitQsjorIbpBbI",
@@ -85,3 +89,51 @@ def inject_firebase_analytics():
     </div>
     """
     components.html(tracking_html, height=0, width=0)
+
+
+def send_feedback_to_firestore(name: str, email: str, role: str, topic: str, rating: int, content: str) -> tuple:
+    """
+    Sends user feedback to Firebase Cloud Firestore collection 'feedbacks'.
+    Returns (success: bool, detail: str).
+    """
+    if not content or not content.strip():
+        return False, "Nội dung góp ý không được để trống."
+
+    url = (
+        f"https://firestore.googleapis.com/v1/projects/{FIREBASE_CONFIG['projectId']}"
+        f"/databases/(default)/documents/feedbacks?key={FIREBASE_CONFIG['apiKey']}"
+    )
+
+    now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    doc_payload = {
+        "fields": {
+            "name": {"stringValue": (name.strip() if name and name.strip() else "Người dùng ẩn danh")},
+            "email": {"stringValue": (email.strip() if email and email.strip() else "Không cung cấp")},
+            "role": {"stringValue": role or "Nhà nghiên cứu / Giảng viên"},
+            "topic": {"stringValue": topic or "Đề xuất tính năng mới"},
+            "rating": {"integerValue": str(rating)},
+            "content": {"stringValue": content.strip()},
+            "created_at": {"timestampValue": now_iso},
+            "platform": {"stringValue": "SmartResearch Studio Web"}
+        }
+    }
+
+    try:
+        req_data = json.dumps(doc_payload).encode("utf-8")
+        req = urllib.request.Request(
+            url,
+            data=req_data,
+            headers={"Content-Type": "application/json"},
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            if resp.status in (200, 201):
+                return True, "Gửi ý kiến đóng góp thành công!"
+            return False, f"Máy chủ phản hồi mã {resp.status}."
+    except urllib.error.HTTPError as err:
+        err_body = err.read().decode("utf-8", errors="ignore")
+        if err.code == 403:
+            return False, "PERMISSION_DENIED"
+        return False, f"Lỗi HTTP {err.code}: {err.reason}"
+    except Exception as exc:
+        return False, f"Lỗi kết nối: {str(exc)}"

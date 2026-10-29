@@ -26,15 +26,10 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 
-# Ensure current directory is at the top of sys.path and purge stale core modules for clean hot-reloads
+# Ensure current directory is at the top of sys.path
 _app_dir = os.path.dirname(os.path.abspath(__file__))
 if _app_dir not in sys.path:
     sys.path.insert(0, _app_dir)
-
-# Evict cached core modules if any were loaded in a previous run so hot-reloading always loads updated code
-for _mod_name in list(sys.modules.keys()):
-    if _mod_name == "core" or _mod_name.startswith("core."):
-        del sys.modules[_mod_name]
 
 from core.data_loader import DataLoader
 from core.descriptives import (
@@ -98,8 +93,8 @@ if "analysis_results" not in st.session_state:
     st.session_state.analysis_results = {}
 if "current_file_id" not in st.session_state:
     st.session_state.current_file_id = None
-if "last_uploaded_file_id" not in st.session_state:
-    st.session_state.last_uploaded_file_id = None
+if "sidebar_file_loaded" not in st.session_state:
+    st.session_state.sidebar_file_loaded = False
 
 
 def load_sample():
@@ -111,12 +106,14 @@ def load_sample():
         with open(sample_sav, "rb") as f:
             st.session_state.loader.load_file(f.read(), "social_research_data.sav")
             st.session_state.current_file_id = "sample_data_sav"
+            st.session_state.sidebar_file_loaded = False
             st.session_state.analysis_results = {}
             st.sidebar.success("✅ Đã nạp bộ dữ liệu mẫu SPSS (.sav) thành công!")
     elif os.path.exists(sample_xlsx):
         with open(sample_xlsx, "rb") as f:
             st.session_state.loader.load_file(f.read(), "social_research_data.xlsx")
             st.session_state.current_file_id = "sample_data_xlsx"
+            st.session_state.sidebar_file_loaded = False
             st.session_state.analysis_results = {}
             st.sidebar.success("✅ Đã nạp bộ dữ liệu mẫu Excel (.xlsx) thành công!")
 
@@ -396,23 +393,23 @@ with st.sidebar:
     )
     
     if uploaded_file is not None:
-        file_id = f"{uploaded_file.name}_{uploaded_file.size}"
-        if st.session_state.get("last_uploaded_file_id") != file_id:
+        file_id = f"sidebar_{uploaded_file.name}_{uploaded_file.size}"
+        if st.session_state.get("current_file_id") != file_id:
             try:
                 bytes_data = uploaded_file.getvalue()
                 st.session_state.loader.load_file(bytes_data, uploaded_file.name)
                 st.session_state.current_file_id = file_id
-                st.session_state.last_uploaded_file_id = file_id
+                st.session_state.sidebar_file_loaded = True
                 st.session_state.analysis_results = {}
                 st.sidebar.success(f"✓ Đã nạp: {uploaded_file.name}")
                 st.rerun()
             except Exception as e:
                 st.sidebar.error(f"Lỗi đọc tệp: {str(e)}")
     else:
-        # User removed the uploaded file
-        if st.session_state.get("last_uploaded_file_id") is not None:
-            st.session_state.last_uploaded_file_id = None
-            if st.session_state.get("current_file_id") not in [None, "sample_data_sav", "sample_data_xlsx"]:
+        # If user explicitly cleared the sidebar file uploader that was previously loaded
+        if st.session_state.get("sidebar_file_loaded"):
+            st.session_state.sidebar_file_loaded = False
+            if str(st.session_state.get("current_file_id", "")).startswith("sidebar_"):
                 st.session_state.loader = DataLoader()
                 st.session_state.current_file_id = None
                 st.session_state.analysis_results = {}
@@ -437,6 +434,12 @@ with st.sidebar:
             </div>
         </div>
         """, unsafe_allow_html=True)
+        if st.sidebar.button("🗑️ Đóng / Đổi tệp dữ liệu khác", use_container_width=True):
+            st.session_state.loader = DataLoader()
+            st.session_state.current_file_id = None
+            st.session_state.sidebar_file_loaded = False
+            st.session_state.analysis_results = {}
+            st.rerun()
 
     st.markdown("---")
     st.caption("Chuẩn APA 7th Edition • Hair et al. (2022)")
@@ -647,13 +650,12 @@ if df is None:
             key="welcome_main_file_uploader"
         )
         if welcome_file is not None:
-            w_file_id = f"{welcome_file.name}_{welcome_file.size}"
+            w_file_id = f"welcome_{welcome_file.name}_{welcome_file.size}"
             if st.session_state.get("current_file_id") != w_file_id:
                 try:
                     bytes_data = welcome_file.getvalue()
                     st.session_state.loader.load_file(bytes_data, welcome_file.name)
                     st.session_state.current_file_id = w_file_id
-                    st.session_state.last_uploaded_file_id = w_file_id
                     st.session_state.analysis_results = {}
                     st.rerun()
                 except Exception as e:

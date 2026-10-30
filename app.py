@@ -641,6 +641,110 @@ def on_stepper_change():
         st.session_state.active_step_num = new_step
         st.session_state.sidebar_menu_radio = MENU_LIST[new_step - 1]
 
+def inject_stepper_scroll_arrow():
+    """
+    Injects a minimalist, frameless scroll arrow button '>' with butter-smooth CSS alpha mask.
+    Removes circular outline and applies seamless alpha transparency fade to prevent any text overlap.
+    """
+    html_code = """
+    <script>
+    (function() {
+        function attachArrow() {
+            try {
+                var pDoc = window.parent.document;
+                if (!pDoc) return;
+
+                var bg = pDoc.querySelector('[data-testid="stButtonGroup"]') || pDoc.querySelector('[data-testid="stPills"]');
+                if (!bg) {
+                    setTimeout(attachArrow, 150);
+                    return;
+                }
+
+                var scrollTrack = bg.querySelector('[role="radiogroup"]') || bg.querySelector('[role="group"]') || bg.querySelector('div:last-child') || bg;
+                bg.style.position = 'relative';
+
+                // Clean up any old fade wrapper if present
+                var oldWrapper = pDoc.getElementById('stepper-arrow-fade-wrapper');
+                if (oldWrapper) {
+                    oldWrapper.remove();
+                }
+
+                var btn = pDoc.getElementById('stepper-scroll-arrow-btn');
+                if (!btn) {
+                    btn = pDoc.createElement('button');
+                    btn.id = 'stepper-scroll-arrow-btn';
+                    btn.type = 'button';
+                    btn.innerHTML = '›';
+                    btn.setAttribute('aria-label', 'Xem tiếp các công cụ bị ẩn');
+                    btn.title = 'Bấm để xem các công cụ tiếp theo (9. Machine Learning, 10. Xuất báo cáo)';
+                    bg.appendChild(btn);
+
+                    btn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        var maxScroll = Math.max(0, scrollTrack.scrollWidth - scrollTrack.clientWidth);
+                        if (scrollTrack.scrollLeft < maxScroll * 0.4) {
+                            scrollTrack.scrollTo({ left: maxScroll + 120, behavior: 'smooth' });
+                        } else {
+                            scrollTrack.scrollTo({ left: 0, behavior: 'smooth' });
+                        }
+                        setTimeout(updateArrowState, 350);
+                    });
+
+                    scrollTrack.addEventListener('scroll', updateArrowState, { passive: true });
+                    window.parent.addEventListener('resize', updateArrowState, { passive: true });
+                }
+
+                function updateArrowState() {
+                    if (!btn) return;
+                    var maxScroll = Math.max(0, scrollTrack.scrollWidth - scrollTrack.clientWidth);
+
+                    // Dynamically align vertical center with pill buttons
+                    var pill = bg.querySelector('button');
+                    if (pill) {
+                        var pillRect = pill.getBoundingClientRect();
+                        var bgRect = bg.getBoundingClientRect();
+                        var centerY = (pillRect.top - bgRect.top) + (pillRect.height / 2);
+                        btn.style.top = centerY + 'px';
+                        btn.style.transform = 'translateY(-50%)';
+                    }
+
+                    if (maxScroll <= 5) {
+                        btn.style.display = 'none';
+                        scrollTrack.style.webkitMaskImage = 'none';
+                        scrollTrack.style.maskImage = 'none';
+                    } else {
+                        btn.style.display = 'inline-flex';
+                        if (scrollTrack.scrollLeft < maxScroll * 0.4) {
+                            btn.innerHTML = '›';
+                            btn.title = 'Bấm để xem các công cụ tiếp theo (9. Machine Learning, 10. Xuất báo cáo)';
+                            scrollTrack.style.webkitMaskImage = 'linear-gradient(to right, #000 calc(100% - 44px), transparent 100%)';
+                            scrollTrack.style.maskImage = 'linear-gradient(to right, #000 calc(100% - 44px), transparent 100%)';
+                        } else {
+                            btn.innerHTML = '‹';
+                            btn.title = 'Bấm để quay lại các công cụ trước';
+                            // At the end, fade left edge only, keeping Step 10 on the right completely unmasked
+                            scrollTrack.style.webkitMaskImage = 'linear-gradient(to right, transparent 0%, #000 40px)';
+                            scrollTrack.style.maskImage = 'linear-gradient(to right, transparent 0%, #000 40px)';
+                        }
+                    }
+                }
+
+                updateArrowState();
+            } catch(err) {
+                // Silently fallback if sandbox restrictions
+            }
+        }
+
+        attachArrow();
+        setTimeout(attachArrow, 100);
+        setTimeout(attachArrow, 300);
+        setTimeout(attachArrow, 700);
+    })();
+    </script>
+    """
+    st.components.v1.html(html_code, height=0, width=0)
+
 col_stepper, col_popover = st.columns([7.8, 2.2])
 
 with col_stepper:
@@ -654,6 +758,7 @@ with col_stepper:
         on_change=on_stepper_change,
         label_visibility="collapsed"
     )
+    inject_stepper_scroll_arrow()
 
 with col_popover:
     n_hist_top = st.session_state.history_mgr.count() if "history_mgr" in st.session_state else 0

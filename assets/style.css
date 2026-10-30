@@ -1139,9 +1139,10 @@ div:has(> [data-testid="stPopover"]) button:active,
     cursor: pointer !important;
 }
 
+[data-testid="stButtonGroup"] button:last-child,
 [data-testid="stPill"]:last-child,
 [data-testid="stPills"] button:last-child {
-    margin-right: 0 !important;
+    margin-right: 36px !important; /* Reserves clear breathing room on the right so arrow never touches Step 10 */
 }
 
 [data-testid="stPill"]:not(:last-child)::after,
@@ -1697,4 +1698,59 @@ div:has(> [data-testid="stPopover"]) button:active,
         max-width: 100% !important;
         overflow-x: auto !important;
     }
+}
+
+/* --- MINIMALIST STEPPER SCROLL ARROW (FRAMELESS, NO CIRCLE, SMOOTH ALPHA FADE) --- */
+#stepper-scroll-arrow-btn {
+    position: absolute !important;
+    right: 2px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    z-index: 50 !important;
+    width: 22px !important;
+    height: 32px !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    color: #475569 !important;
+    font-size: 21px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    cursor: pointer !important;
+    opacity: 0.72 !important;
+    transition: all 0.16s ease !important;
+    user-select: none !important;
+}
+
+#stepper-scroll-arrow-btn:hover {
+    opacity: 1 !important;
+    color: #1d4ed8 !important;
+    transform: translateY(-50%) scale(1.22) !important;
+}
+
+#stepper-scroll-arrow-btn:active {
+    transform: translateY(-50%) scale(0.92) !important;
+}
+
+/* Smooth scroll on stepper button group and hide default scrollbar */
+[data-testid="stButtonGroup"] > div,
+[data-testid="stPills"],
+.workflow-stepper {
+    scroll-behavior: smooth !important;
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+}
+
+[data-testid="stButtonGroup"] > div::-webkit-scrollbar,
+[data-testid="stPills"]::-webkit-scrollbar,
+.workflow-stepper::-webkit-scrollbar {
+    display: none !important;
+    height: 0 !important;
+    width: 0 !important;
 }

@@ -217,80 +217,102 @@ div:has(> div > iframe[height="0"]),
 }
 
 /* --- SIDEBAR WORKFLOW NAVIGATION (SCIENTIFIC SOFTWARE STANDARD UX/UI) --- */
-/* Unified Equal Width (100%), Uniform Equal Height (50px), Pixel-Perfect Alignment */
+/* Unified 100% Equal Width, Uniform Equal Height (48px), Pixel-Perfect Alignment */
 
-/* 1. Header Section Label: "QUY TRÌNH PHÂN TÍCH NCKH" */
+/* 1. Header Section Label: "QUY TRÌNH PHÂN TÍCH NCKH" - Clean Header, Never a Button Card */
+[data-testid="stSidebar"] div[data-testid="stRadio"] [data-testid="stWidgetLabel"],
+[data-testid="stSidebar"] div[data-testid="stRadio"] [data-testid="stWidgetLabel"] label,
 [data-testid="stSidebar"] div[data-testid="stRadio"] > label,
+[data-testid="stSidebar"] .stRadio [data-testid="stWidgetLabel"],
 [data-testid="stSidebar"] .stRadio > label {
     display: block !important;
     background: transparent !important;
+    background-color: transparent !important;
     border: none !important;
     box-shadow: none !important;
     padding: 6px 4px 10px 4px !important;
     margin: 0 !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: auto !important;
 }
 
+[data-testid="stSidebar"] div[data-testid="stRadio"] [data-testid="stWidgetLabel"] p,
+[data-testid="stSidebar"] div[data-testid="stRadio"] [data-testid="stWidgetLabel"] span,
 [data-testid="stSidebar"] div[data-testid="stRadio"] > label p,
 [data-testid="stSidebar"] div[data-testid="stRadio"] > label span,
-[data-testid="stSidebar"] .stRadio > label p,
-[data-testid="stSidebar"] .stRadio > label span {
+[data-testid="stSidebar"] .stRadio [data-testid="stWidgetLabel"] p,
+[data-testid="stSidebar"] .stRadio > label p {
     font-size: 11px !important;
-    font-weight: 750 !important;
+    font-weight: 800 !important;
     letter-spacing: 0.08em !important;
     text-transform: uppercase !important;
     color: #64748b !important;
+    text-shadow: none !important;
 }
 
-/* 2. Radio Group Vertical Column - Stretch to make ALL items identical in width */
+/* 2. Radio Group Vertical Column Container - 100% Full Width, Stretch All Children */
 [data-testid="stSidebar"] [data-testid="stRadioGroup"],
 [data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"],
-[data-testid="stSidebar"] .stRadio [role="radiogroup"] {
+[data-testid="stSidebar"] .stRadio [role="radiogroup"],
+[data-testid="stSidebar"] div.stRadio > div:nth-child(2) {
     display: flex !important;
     flex-direction: column !important;
     align-items: stretch !important;
     gap: 7px !important;
     background: transparent !important;
+    background-color: transparent !important;
     border: none !important;
     padding: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-}
-
-/* Ensure EVERY child/wrapper inside the radio group stretches to 100% width */
-[data-testid="stSidebar"] [data-testid="stRadioGroup"] > *,
-[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] > *,
-[data-testid="stSidebar"] .stRadio [role="radiogroup"] > * {
+    margin: 0 !important;
     width: 100% !important;
     min-width: 100% !important;
     max-width: 100% !important;
-    display: flex !important;
-    align-self: stretch !important;
-    box-sizing: border-box !important;
-    margin: 0 !important;
 }
 
-/* 3. Each Navigation Item Card - Equal Width (100%) and Uniform Height (50px) */
-[data-testid="stSidebar"] [data-testid="stRadioGroup"] > label,
+/* 3. Direct Children of Radio Group (React-Aria Field Wrapper: fe / div) - Invisible Stretch Wrapper */
 [data-testid="stSidebar"] [data-testid="stRadioGroup"] > div,
-[data-testid="stSidebar"] [data-testid="stRadioGroup"] [class*="e1dm8mpf1"],
-[data-testid="stSidebar"] [data-testid="stRadioGroup"] label,
+[data-testid="stSidebar"] [data-testid="stRadioGroup"] > *,
+[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] > div,
+[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] > *,
+[data-testid="stSidebar"] .stRadio [role="radiogroup"] > div,
+[data-testid="stSidebar"] .stRadio [role="radiogroup"] > * {
+    display: block !important;
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    min-width: 100% !important;
+    max-width: 100% !important;
+    align-self: stretch !important;
+    box-sizing: border-box !important;
+}
+
+/* 4. EACH NAVIGATION ITEM CARD (The <label> / [data-testid="stRadioOption"]) */
+/* Guarantees 100% Identical Width across all 10 items and Uniform Height (48px) */
 [data-testid="stSidebar"] [data-testid="stRadioOption"],
-[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label {
+[data-testid="stSidebar"] [data-testid="stRadioGroup"] label,
+[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label,
+[data-testid="stSidebar"] .stRadio [role="radiogroup"] label {
     display: flex !important;
     align-items: center !important;
     justify-content: flex-start !important;
     align-self: stretch !important;
     width: 100% !important;
-    max-width: 100% !important;
     min-width: 100% !important;
-    height: 50px !important;
-    min-height: 50px !important;
-    max-height: 50px !important;
+    max-width: 100% !important;
+    height: 48px !important;
+    min-height: 48px !important;
+    max-height: 48px !important;
     box-sizing: border-box !important;
     background: #0f172a !important;
+    background-color: #0f172a !important;
     border: 1px solid #1e293b !important;
     border-left: 4px solid transparent !important;
-    padding: 0 14px !important;
+    padding: 0 12px !important;
     border-radius: 8px !important;
     cursor: pointer !important;
     margin: 0 !important;
@@ -299,29 +321,33 @@ div:has(> div > iframe[height="0"]),
     transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 
-/* 4. Inner container inside stRadioOption */
+/* 5. Inner Container inside Card (me / div) */
 [data-testid="stSidebar"] [data-testid="stRadioOption"] > div,
-[data-testid="stSidebar"] [class*="e1dm8mpf3"] {
+[data-testid="stSidebar"] [data-testid="stRadioGroup"] label > div {
     display: flex !important;
     align-items: center !important;
     width: 100% !important;
     height: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
     gap: 0 !important;
 }
 
-/* 5. COMPLETELY HIDE the radio circle and inner white dot across all versions */
-[data-testid="stSidebar"] [class*="e1dm8mpf4"],
-[data-testid="stSidebar"] [class*="e1dm8mpf5"],
+/* 6. COMPLETELY HIDE the radio bullet circle / dot across ALL Streamlit versions */
+[data-testid="stSidebar"] [data-testid="stRadioOption"] > div > *:not([data-testid="stMarkdownContainer"]):not(:has([data-testid="stMarkdownContainer"])),
+[data-testid="stSidebar"] [data-testid="stRadioOption"] > *:not([data-testid="stMarkdownContainer"]):not(:has([data-testid="stMarkdownContainer"])),
+[data-testid="stSidebar"] [data-testid="stRadioOption"] div:first-child:not([data-testid="stMarkdownContainer"]):not(:has([data-testid="stMarkdownContainer"])),
+[data-testid="stSidebar"] [data-testid="stRadioOption"] [class*="e1dm8mpf4"],
+[data-testid="stSidebar"] [data-testid="stRadioOption"] [class*="e1dm8mpf5"],
 [data-testid="stSidebar"] [data-testid="stRadioOption"] svg,
 [data-testid="stSidebar"] [data-testid="stRadio"] [role="radiogroup"] svg,
-[data-testid="stSidebar"] [data-testid="stRadioOption"] > div > div:first-child:not([data-testid="stMarkdownContainer"]),
 [data-testid="stSidebar"] [data-testid="stRadioOption"] [data-baseweb="radio"],
+[data-testid="stSidebar"] [data-testid="stRadioOption"] [data-baseweb="radio"] *,
 [data-testid="stSidebar"] [data-testid="stRadioOption"] input[type="radio"],
 [data-testid="stSidebar"] [data-testid="stRadioOption"] span:has(input),
+[data-testid="stSidebar"] [data-testid="stRadioOption"] span,
 [data-testid="stSidebar"] [data-testid="stRadioOption"] input[type="radio"] + div,
-[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label > div:first-child:not([data-testid="stMarkdownContainer"]),
-[data-testid="stSidebar"] .stRadio [role="radiogroup"] label > div:first-child:not([data-testid="stMarkdownContainer"]),
-[data-testid="stSidebar"] .stRadio [data-baseweb="radio"] {
+[data-testid="stSidebar"] [data-testid="stRadioOption"] [role="presentation"] {
     display: none !important;
     visibility: hidden !important;
     width: 0 !important;
@@ -334,10 +360,9 @@ div:has(> div > iframe[height="0"]),
     pointer-events: none !important;
 }
 
-/* 6. Item Text Typography (Crisp Scientific Software Layout) */
+/* 7. Typography Layout inside Card (Crisp Scientific Software Layout) */
 [data-testid="stSidebar"] [data-testid="stRadioOption"] [data-testid="stMarkdownContainer"],
-[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label [data-testid="stMarkdownContainer"],
-[data-testid="stSidebar"] .stRadio [data-testid="stMarkdownContainer"] {
+[data-testid="stSidebar"] [data-testid="stRadioGroup"] label [data-testid="stMarkdownContainer"] {
     display: flex !important;
     align-items: center !important;
     width: 100% !important;
@@ -348,14 +373,12 @@ div:has(> div > iframe[height="0"]),
 
 [data-testid="stSidebar"] [data-testid="stRadioOption"] [data-testid="stMarkdownContainer"] p,
 [data-testid="stSidebar"] [data-testid="stRadioOption"] [data-testid="stMarkdownContainer"] span,
-[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label [data-testid="stMarkdownContainer"] p,
-[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label [data-testid="stMarkdownContainer"] span,
-[data-testid="stSidebar"] .stRadio [data-testid="stMarkdownContainer"] p,
-[data-testid="stSidebar"] .stRadio [data-testid="stMarkdownContainer"] span {
+[data-testid="stSidebar"] [data-testid="stRadioGroup"] label [data-testid="stMarkdownContainer"] p,
+[data-testid="stSidebar"] [data-testid="stRadioGroup"] label [data-testid="stMarkdownContainer"] span {
     color: #94a3b8 !important;
     font-weight: 600 !important;
-    font-size: 13px !important;
-    line-height: 1.35 !important;
+    font-size: 12.5px !important;
+    line-height: 1.25 !important;
     margin: 0 !important;
     padding: 0 !important;
     letter-spacing: -0.15px !important;
@@ -365,48 +388,44 @@ div:has(> div > iframe[height="0"]),
     text-align: left !important;
 }
 
-/* 7. Hover State (Slate Lift & Bright Text) */
-[data-testid="stSidebar"] [data-testid="stRadioGroup"] label:hover,
-[data-testid="stSidebar"] [data-testid="stRadioOption"]:hover,
-[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label:hover {
+/* 8. Hover State (Slate Lift & Bright Text) */
+[data-testid="stSidebar"] [data-testid="stRadioOption"]:hover:not([data-selected="true"]):not([aria-checked="true"]):not(:has(input:checked)),
+[data-testid="stSidebar"] [data-testid="stRadioGroup"] label:hover:not([data-selected="true"]):not([aria-checked="true"]):not(:has(input:checked)),
+[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label:hover:not([data-selected="true"]):not([aria-checked="true"]):not(:has(input:checked)) {
     background-color: #1e293b !important;
     border-color: #334155 !important;
     border-left-color: #60a5fa !important;
     transform: translateX(2px) !important;
 }
 
-[data-testid="stSidebar"] [data-testid="stRadioGroup"] label:hover [data-testid="stMarkdownContainer"] p,
-[data-testid="stSidebar"] [data-testid="stRadioOption"]:hover [data-testid="stMarkdownContainer"] p,
-[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label:hover [data-testid="stMarkdownContainer"] p {
+[data-testid="stSidebar"] [data-testid="stRadioOption"]:hover:not([data-selected="true"]):not([aria-checked="true"]):not(:has(input:checked)) [data-testid="stMarkdownContainer"] p,
+[data-testid="stSidebar"] [data-testid="stRadioGroup"] label:hover:not([data-selected="true"]):not([aria-checked="true"]):not(:has(input:checked)) [data-testid="stMarkdownContainer"] p {
     color: #f8fafc !important;
 }
 
-/* 8. Active / Selected State (Royal Blue Gradient with High-Contrast Pure White Text) */
-[data-testid="stSidebar"] [data-testid="stRadioGroup"] label:has(input:checked),
-[data-testid="stSidebar"] [data-testid="stRadioGroup"] label[data-selected="true"],
-[data-testid="stSidebar"] [data-testid="stRadioGroup"] label[aria-checked="true"],
-[data-testid="stSidebar"] [data-testid="stRadioOption"]:has(input:checked),
+/* 9. Active / Selected State (Royal Blue Gradient with High-Contrast Pure White Text) */
 [data-testid="stSidebar"] [data-testid="stRadioOption"][data-selected="true"],
 [data-testid="stSidebar"] [data-testid="stRadioOption"][aria-checked="true"],
-[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label:has(input:checked),
+[data-testid="stSidebar"] [data-testid="stRadioOption"]:has(input:checked),
+[data-testid="stSidebar"] [data-testid="stRadioGroup"] label[data-selected="true"],
+[data-testid="stSidebar"] [data-testid="stRadioGroup"] label[aria-checked="true"],
+[data-testid="stSidebar"] [data-testid="stRadioGroup"] label:has(input:checked),
+[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label[data-selected="true"],
 [data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label[aria-checked="true"],
-[data-testid="stSidebar"] .stRadio [role="radiogroup"] label:has(input:checked),
-[data-testid="stSidebar"] .stRadio [role="radiogroup"] label[aria-checked="true"] {
+[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) {
     background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%) !important;
     border-color: #3b82f6 !important;
     border-left: 4.5px solid #38bdf8 !important;
     box-shadow: 0 4px 14px rgba(29, 78, 216, 0.45) !important;
-    transform: translateX(0) !important;
+    transform: none !important;
 }
 
-[data-testid="stSidebar"] [data-testid="stRadioGroup"] label:has(input:checked) [data-testid="stMarkdownContainer"] p,
-[data-testid="stSidebar"] [data-testid="stRadioGroup"] label[data-selected="true"] [data-testid="stMarkdownContainer"] p,
-[data-testid="stSidebar"] [data-testid="stRadioGroup"] label[aria-checked="true"] [data-testid="stMarkdownContainer"] p,
-[data-testid="stSidebar"] [data-testid="stRadioOption"]:has(input:checked) [data-testid="stMarkdownContainer"] p,
 [data-testid="stSidebar"] [data-testid="stRadioOption"][data-selected="true"] [data-testid="stMarkdownContainer"] p,
 [data-testid="stSidebar"] [data-testid="stRadioOption"][aria-checked="true"] [data-testid="stMarkdownContainer"] p,
-[data-testid="stSidebar"] div[data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) [data-testid="stMarkdownContainer"] p,
-[data-testid="stSidebar"] .stRadio [role="radiogroup"] label:has(input:checked) [data-testid="stMarkdownContainer"] p {
+[data-testid="stSidebar"] [data-testid="stRadioOption"]:has(input:checked) [data-testid="stMarkdownContainer"] p,
+[data-testid="stSidebar"] [data-testid="stRadioGroup"] label[data-selected="true"] [data-testid="stMarkdownContainer"] p,
+[data-testid="stSidebar"] [data-testid="stRadioGroup"] label[aria-checked="true"] [data-testid="stMarkdownContainer"] p,
+[data-testid="stSidebar"] [data-testid="stRadioGroup"] label:has(input:checked) [data-testid="stMarkdownContainer"] p {
     color: #ffffff !important;
     font-weight: 750 !important;
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25) !important;
@@ -508,59 +527,112 @@ div:has(> div > iframe[height="0"]),
     fill: #f87171 !important;
 }
 
-/* --- MAIN CONTENT OPTION BARS (HORIZONTAL RADIO / SEGMENTED CONTROLS) --- */
-.main [data-testid="stRadio"] [role="radiogroup"] {
+/* --- MAIN CONTENT FRAMED HORIZONTAL RADIO OPTIONS (STYLISH CARD FRAMES, ALWAYS ON 1 ROW) --- */
+/* User requested: "tôi thích option được để trong khung giống lúc nãy" + always horizontal */
+.main div[data-testid="stRadio"] [data-testid="stRadioGroup"],
+.main div[data-testid="stRadio"] [role="radiogroup"],
+[data-testid="stMainBlockContainer"] div[data-testid="stRadio"] [role="radiogroup"] {
     display: flex !important;
     flex-direction: row !important;
-    flex-wrap: wrap !important;
-    gap: 8px !important;
-    background: #e2e8f0 !important;
-    border: 1.5px solid #cbd5e1 !important;
-    border-radius: 10px !important;
-    padding: 6px !important;
+    flex-wrap: nowrap !important; /* Keep strictly on ONE horizontal row side-by-side */
+    align-items: center !important;
+    gap: 12px !important; /* Balanced gap between framed option cards */
     margin-top: 6px !important;
     margin-bottom: 14px !important;
+    padding: 2px 0 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    overflow-x: auto !important;
 }
 
-.main [data-testid="stRadio"] [role="radiogroup"] label {
+/* Direct child wrapper of each option in the group */
+.main div[data-testid="stRadio"] [data-testid="stRadioGroup"] > div,
+.main div[data-testid="stRadio"] [role="radiogroup"] > div,
+.main div[data-testid="stRadio"] [data-testid="stRadioGroup"] > *,
+[data-testid="stMainBlockContainer"] div[data-testid="stRadio"] [role="radiogroup"] > div {
     display: inline-flex !important;
     align-items: center !important;
-    background: #ffffff !important;
-    border: 1.5px solid #cbd5e1 !important;
-    border-radius: 7px !important;
-    padding: 7px 16px !important;
     margin: 0 !important;
+    padding: 0 !important;
+    flex-shrink: 0 !important;
+}
+
+/* Individual Framed Radio Option Card / Label (Sleek Rounded Frame) */
+.main div[data-testid="stRadio"] [data-testid="stRadioOption"],
+.main div[data-testid="stRadio"] [role="radiogroup"] label,
+[data-testid="stMainBlockContainer"] div[data-testid="stRadio"] [role="radiogroup"] label {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 9px !important; /* Neat space between radio circle and text */
     cursor: pointer !important;
+    padding: 6px 14px !important;
+    border-radius: 8px !important;
+    border: 1.5px solid #cbd5e1 !important;
+    background: #ffffff !important;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
-    transition: all 0.15s ease-in-out !important;
+    transition: all 0.16s ease-in-out !important;
+    margin: 0 !important;
+    white-space: nowrap !important;
 }
 
-/* Unchecked Option Text */
-.main [data-testid="stRadio"] [role="radiogroup"] label p {
-    color: #0f172a !important;
-    font-weight: 700 !important;
-    font-size: 13.5px !important;
-}
-
-.main [data-testid="stRadio"] [role="radiogroup"] label:hover {
-    border-color: #1d4ed8 !important;
+/* Hover state on option frame */
+.main div[data-testid="stRadio"] [data-testid="stRadioOption"]:hover,
+.main div[data-testid="stRadio"] [role="radiogroup"] label:hover,
+[data-testid="stMainBlockContainer"] div[data-testid="stRadio"] [role="radiogroup"] label:hover {
     background: #eff6ff !important;
+    border-color: #93c5fd !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 2px 5px rgba(59, 130, 246, 0.12) !important;
 }
 
-.main [data-testid="stRadio"] [role="radiogroup"] label:hover p {
+/* Selected option frame highlight (Vibrant Blue Frame & Soft Tint) */
+.main div[data-testid="stRadio"] [data-testid="stRadioOption"]:has(input:checked),
+.main div[data-testid="stRadio"] [role="radiogroup"] label:has(input:checked),
+[data-testid="stMainBlockContainer"] div[data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) {
+    background: #eff6ff !important;
+    border-color: #2563eb !important;
+    box-shadow: 0 2px 7px rgba(37, 99, 235, 0.18) !important;
+}
+
+/* Inner flex container inside label */
+.main div[data-testid="stRadio"] [data-testid="stRadioOption"] > div,
+.main div[data-testid="stRadio"] [role="radiogroup"] label > div {
+    display: flex !important;
+    align-items: center !important;
+    gap: 9px !important;
+}
+
+/* Radio circle element */
+.main div[data-testid="stRadio"] [data-testid="stRadioOption"] [class*="e1dm8mpf4"],
+.main div[data-testid="stRadio"] [role="radiogroup"] [class*="e1dm8mpf4"] {
+    margin-right: 0 !important;
+    flex-shrink: 0 !important;
+}
+
+/* Option text typography inside frame */
+.main div[data-testid="stRadio"] [data-testid="stRadioOption"] [data-testid="stMarkdownContainer"] p,
+.main div[data-testid="stRadio"] [role="radiogroup"] label p,
+[data-testid="stMainBlockContainer"] div[data-testid="stRadio"] [role="radiogroup"] label p {
+    font-size: 13.5px !important;
+    font-weight: 600 !important;
+    color: #1e293b !important;
+    margin: 0 !important;
+    line-height: 1.35 !important;
+    white-space: nowrap !important;
+    transition: color 0.15s ease !important;
+}
+
+.main div[data-testid="stRadio"] [data-testid="stRadioOption"]:hover [data-testid="stMarkdownContainer"] p,
+.main div[data-testid="stRadio"] [role="radiogroup"] label:hover p {
     color: #1d4ed8 !important;
 }
 
-/* Checked Option Pill (Vibrant Royal Navy with Pure White Text) */
-.main [data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) {
-    background-color: #1d4ed8 !important;
-    border-color: #1d4ed8 !important;
-    box-shadow: 0 3px 8px rgba(29, 78, 216, 0.4) !important;
-}
-
-.main [data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) p {
-    color: #ffffff !important;
-    font-weight: 800 !important;
+.main div[data-testid="stRadio"] [data-testid="stRadioOption"]:has(input:checked) [data-testid="stMarkdownContainer"] p,
+.main div[data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) p,
+[data-testid="stMainBlockContainer"] div[data-testid="stRadio"] [role="radiogroup"] label:has(input:checked) p {
+    color: #1d4ed8 !important;
+    font-weight: 750 !important;
 }
 
 /* --- STREAMLIT TABS (st.tabs) - MODERN FLOATING PILL SEGMENT --- */
@@ -915,6 +987,119 @@ div:has(> div > iframe[height="0"]),
 .academic-narrative strong {
     color: #0f172a !important;
     font-weight: 800 !important;
+}
+
+/* --- POP-UP NHẬT KÝ & LỊCH SỬ THAO TÁC (HISTORY AUDIT LOG - BALANCED IDE INSPECTOR) --- */
+[data-testid="stPopoverBody"] {
+    width: 410px !important;
+    min-width: 380px !important;
+    max-width: 430px !important;
+    max-height: 460px !important;
+    overflow-y: auto !important;
+    border-radius: 10px !important;
+    box-shadow: 0 16px 36px -6px rgba(15, 23, 42, 0.22), 0 0 0 1px rgba(226, 232, 240, 0.85) !important;
+    border: 1px solid #cbd5e1 !important;
+    padding: 13px 15px !important;
+    background: #ffffff !important;
+    scrollbar-width: thin !important;
+}
+
+/* Enforce max-width on BaseWeb Popover Wrapper */
+div:has(> [data-testid="stPopoverBody"]),
+[data-baseweb="popover"],
+[data-baseweb="popover"] > div {
+    max-width: 435px !important;
+}
+
+[data-testid="stPopoverBody"]::-webkit-scrollbar {
+    width: 5px !important;
+}
+
+[data-testid="stPopoverBody"]::-webkit-scrollbar-thumb {
+    background: #cbd5e1 !important;
+    border-radius: 9999px !important;
+}
+
+/* History Trigger Button */
+div:has(> [data-testid="stPopover"]) button,
+[data-testid="stPopover"] > button {
+    background: #ffffff !important;
+    color: #1e293b !important;
+    border: 1.5px solid #cbd5e1 !important;
+    border-radius: 10px !important;
+    font-weight: 750 !important;
+    font-size: 12.5px !important;
+    padding: 7px 14px !important;
+    box-shadow: 0 2px 6px -1px rgba(15, 23, 42, 0.05) !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+div:has(> [data-testid="stPopover"]) button:hover,
+[data-testid="stPopover"] > button:hover {
+    border-color: #3b82f6 !important;
+    color: #1d4ed8 !important;
+    background: #eff6ff !important;
+    transform: translateY(-1.5px) !important;
+    box-shadow: 0 4px 12px rgba(29, 78, 216, 0.18) !important;
+}
+
+div:has(> [data-testid="stPopover"]) button:active,
+[data-testid="stPopover"] > button:active {
+    transform: translateY(1px) scale(0.98) !important;
+}
+
+/* Sidebar variant of History button */
+[data-testid="stSidebar"] [data-testid="stPopover"] > button {
+    background: #1e293b !important;
+    color: #f8fafc !important;
+    border: 1px solid #334155 !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2) !important;
+}
+
+[data-testid="stSidebar"] [data-testid="stPopover"] > button:hover {
+    background: #2563eb !important;
+    border-color: #3b82f6 !important;
+    color: #ffffff !important;
+    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.4) !important;
+}
+
+/* Rollback & Action Buttons inside Popover (Compact & Professional) */
+[data-testid="stPopoverBody"] button {
+    height: 26px !important;
+    min-height: 26px !important;
+    max-height: 26px !important;
+    padding: 0 10px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    border-radius: 5px !important;
+    line-height: 24px !important;
+    border: 1px solid #cbd5e1 !important;
+    background: #f8fafc !important;
+    color: #334155 !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03) !important;
+    transition: all 0.12s ease !important;
+    width: auto !important;
+}
+
+[data-testid="stPopoverBody"] button:hover {
+    background: #eff6ff !important;
+    border-color: #3b82f6 !important;
+    color: #1d4ed8 !important;
+    transform: none !important;
+    box-shadow: 0 2px 4px rgba(29, 78, 216, 0.12) !important;
+}
+
+[data-testid="stPopoverBody"] button:active {
+    background: #dbeafe !important;
+    transform: scale(0.98) !important;
+}
+
+[data-testid="stPopoverBody"] button p {
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    line-height: 24px !important;
+    margin: 0 !important;
+    padding: 0 !important;
 }
 
 /* --- WORKFLOW STEPPER BAR & INTERACTIVE PILLS --- */

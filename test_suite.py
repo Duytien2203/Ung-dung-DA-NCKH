@@ -192,7 +192,30 @@ def run_all_tests():
     assert len(styler_bytes) > 1000
     print(f"[OK] 9C. Mini Table Excel Exporter: Xuất thành công tệp Excel bảng lẻ ({len(mini_excel_bytes)} bytes).")
     
-    print("\n🎉 TẤT CẢ 9/9 MODULE KIỂM THỬ ĐỀU THÀNH CÔNG XUẤT SẮC! 🎉")
+    # 10. Test Analysis History Manager & Audit Log / Rollback
+    from core.history_manager import AnalysisHistoryManager
+    hist = AnalysisHistoryManager(max_entries=10)
+    assert hist.count() == 0
+    hist.log(1, "Bước 1: Quản lý & Khảo sát", "Nạp dữ liệu mẫu NCKH", df=df)
+    assert hist.count() == 1
+    entries = hist.get_entries()
+    assert entries[0]["step_num"] == 1
+    assert entries[0]["df_snapshot"] is not None
+    assert len(entries[0]["df_snapshot"]) == len(df)
+    
+    # Test rollback data snapshot
+    df_modified = df.drop(columns=["PE1"])
+    hist.log(2, "Bước 2: Tiền xử lý", "Xóa biến PE1", df=df_modified)
+    assert hist.count() == 2
+    recent_entry = hist.get_entries()[0] # newest first
+    assert "PE1" not in recent_entry["df_snapshot"].columns
+    
+    # Retrieve first entry snapshot to simulate rollback
+    first_entry = hist.get_entry_by_id(entries[0]["id"])
+    assert "PE1" in first_entry["df_snapshot"].columns
+    print(f"[OK] 10. Analysis History Manager: Ghi nhận nhật ký kiểm toán, chụp snapshot dữ liệu & khôi phục (Rollback) thành công.")
+
+    print("\n🎉 TẤT CẢ 10/10 MODULE KIỂM THỬ ĐỀU THÀNH CÔNG XUẤT SẮC! 🎉")
 
 
 if __name__ == '__main__':

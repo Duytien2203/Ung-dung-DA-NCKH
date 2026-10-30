@@ -58,6 +58,7 @@ from core.data_cleaner import (
     LIKERT_PRESETS
 )
 from core.firebase_config import inject_firebase_analytics, FIREBASE_CONFIG, send_feedback_to_firestore
+from core.history_manager import AnalysisHistoryManager
 
 # Brand Logo Configuration
 logo_dark_path = os.path.join(os.path.dirname(__file__), "assets", "logo_dark.png")
@@ -95,6 +96,8 @@ if "current_file_id" not in st.session_state:
     st.session_state.current_file_id = None
 if "sidebar_file_loaded" not in st.session_state:
     st.session_state.sidebar_file_loaded = False
+if "history_rollback_toast" in st.session_state and st.session_state["history_rollback_toast"]:
+    st.toast(st.session_state.pop("history_rollback_toast"))
 
 
 def load_sample():
@@ -108,6 +111,12 @@ def load_sample():
             st.session_state.current_file_id = "sample_data_sav"
             st.session_state.sidebar_file_loaded = False
             st.session_state.analysis_results = {}
+            record_history(
+                1,
+                "Nạp Dữ liệu Mẫu Nghiên cứu (SPSS)",
+                f"N = {len(st.session_state.loader.df):,} quan sát, {len(st.session_state.loader.df.columns)} biến • Tệp: social_research_data.sav",
+                df=st.session_state.loader.df
+            )
             st.sidebar.success("✅ Đã nạp bộ dữ liệu mẫu SPSS (.sav) thành công!")
     elif os.path.exists(sample_xlsx):
         with open(sample_xlsx, "rb") as f:
@@ -115,6 +124,12 @@ def load_sample():
             st.session_state.current_file_id = "sample_data_xlsx"
             st.session_state.sidebar_file_loaded = False
             st.session_state.analysis_results = {}
+            record_history(
+                1,
+                "Nạp Dữ liệu Mẫu Nghiên cứu (Excel)",
+                f"N = {len(st.session_state.loader.df):,} quan sát, {len(st.session_state.loader.df.columns)} biến • Tệp: social_research_data.xlsx",
+                df=st.session_state.loader.df
+            )
             st.sidebar.success("✅ Đã nạp bộ dữ liệu mẫu Excel (.xlsx) thành công!")
 
 
@@ -347,6 +362,116 @@ STEP_NAMES = [
 
 if "active_step_num" not in st.session_state:
     st.session_state.active_step_num = 1
+if "history_mgr" not in st.session_state:
+    st.session_state.history_mgr = AnalysisHistoryManager()
+
+def record_history(step_num: int, tool_name: str, data_summary: str, df=None, extra_info: str = None):
+    """Logs an analysis action into the session audit history."""
+    if "history_mgr" in st.session_state:
+        step_title = STEP_NAMES[step_num - 1] if 1 <= step_num <= len(STEP_NAMES) else f"Bước {step_num}"
+        st.session_state.history_mgr.log(
+            step_num=step_num,
+            step_name=f"Bước {step_num}: {step_title}",
+            tool_name=tool_name,
+            data_summary=data_summary,
+            df=df,
+            extra_info=extra_info
+        )
+
+def rollback_history_callback(entry_id: str, target_step: int):
+    """Callback triggered before rerun when user clicks rollback on a history entry."""
+    st.session_state.active_step_num = target_step
+    st.session_state.sidebar_menu_radio = MENU_LIST[target_step - 1]
+    st.session_state.stepper_pills_val = target_step
+    
+    hist = st.session_state.get("history_mgr")
+    if hist:
+        entry = hist.get_entry_by_id(entry_id)
+        if entry and entry.get("df_snapshot") is not None:
+            st.session_state.loader.df = entry["df_snapshot"].copy()
+        
+        step_title = STEP_NAMES[target_step - 1] if 1 <= target_step <= len(STEP_NAMES) else f"Bước {target_step}"
+        tool_label = entry['tool_name'] if entry else f"Bước {target_step}"
+        hist.log(
+            step_num=target_step,
+            step_name=f"Bước {target_step}: {step_title}",
+            tool_name=f"Quay lại {tool_label}",
+            data_summary=f"Đã khôi phục dữ liệu về Bước {target_step}",
+            df=st.session_state.loader.df
+        )
+    st.session_state["history_rollback_toast"] = f"Đã quay lại Bước {target_step}: {STEP_NAMES[target_step - 1]}"
+
+def render_history_popup(key_prefix: str = "main"):
+    """
+    Renders the neat, collapsible analysis history popup card.
+    Shows steps, tools used, concise data status, and rollback buttons.
+    """
+    history_mgr = st.session_state.get("history_mgr")
+    if not history_mgr:
+        st.info("Chưa khởi tạo trình quản lý lịch sử.")
+        return
+    
+    entries = history_mgr.get_entries(reverse=True)
+    count = len(entries)
+    
+    st.markdown(f"""<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 2px;">
+<div>
+<div style="font-weight: 800; font-size: 14.5px; color: #0f172a; letter-spacing: -0.2px;">Nhật ký Thao tác & Lịch sử Dữ liệu</div>
+<div style="font-size: 11.5px; color: #64748b; margin-top: 2px; margin-bottom: 8px;">Theo dõi tiến trình từng bước và khôi phục nhanh</div>
+</div>
+<span style="background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 9999px; white-space: nowrap;">
+{count} thao tác
+</span>
+</div>""", unsafe_allow_html=True)
+    
+    if count == 0:
+        st.info("Chưa có thao tác phân tích nào được ghi lại. Khi bạn nạp dữ liệu, làm sạch biến hoặc chạy các kiểm định (Cronbach's Alpha, EFA, CFA, PLS-SEM...), hệ thống sẽ tự động lưu vết tại đây.")
+        return
+    
+    # Action Controls: current step & clear button
+    c_left, c_right = st.columns([1.6, 1])
+    with c_left:
+        curr_step_idx = st.session_state.get("active_step_num", 1)
+        st.markdown(f"<div style='font-size: 12px; color: #475569; line-height: 28px;'>Đang ở: <b>Bước {curr_step_idx}</b></div>", unsafe_allow_html=True)
+    with c_right:
+        if st.button("Xóa nhật ký", key=f"{key_prefix}_clear_hist_btn", type="primary"):
+            history_mgr.clear()
+            st.rerun()
+    
+    st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
+    
+    # Render Timeline Entries
+    for idx, entry in enumerate(entries):
+        badge_color = entry.get("badge_color", "#3b82f6")
+        is_latest = (idx == 0)
+        target_step = entry["step_num"]
+        latest_tag = '<span style="background: #dcfce7; color: #15803d; font-size: 9.5px; font-weight: 700; padding: 1px 5px; border-radius: 3px; margin-left: 4px;">Mới nhất</span>' if is_latest else ''
+        
+        st.markdown(f"""<div style="background: #ffffff; border: 1px solid #e2e8f0; border-left: 3.5px solid {badge_color}; border-radius: 6px; padding: 8px 10px; margin-bottom: 3px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+<span style="font-size: 10.5px; font-weight: 700; color: {badge_color}; background: rgba(59, 130, 246, 0.08); padding: 1.5px 6px; border-radius: 3px;">{entry['step_name']}</span>
+<span style="font-size: 10px; color: #94a3b8; font-weight: 500;">{entry['time_str']} {latest_tag}</span>
+</div>
+<div style="font-size: 12.5px; font-weight: 750; color: #0f172a; margin-top: 2px; margin-bottom: 4px; line-height: 1.3;">{entry['tool_name']}</div>
+<div style="font-size: 11px; color: #475569; line-height: 1.4; background: #f8fafc; padding: 5px 8px; border-radius: 4px; border: 1px solid #f1f5f9;"><b>Dữ liệu:</b> {entry['data_summary']}</div>
+</div>""", unsafe_allow_html=True)
+        
+        # Rollback action row - compact button & metadata
+        b_col1, b_col2 = st.columns([1.1, 1.3])
+        with b_col1:
+            st.button(
+                f"Quay lại Bước {target_step}",
+                key=f"{key_prefix}_rollback_{entry['id']}_{idx}",
+                on_click=rollback_history_callback,
+                args=(entry["id"], target_step),
+                type="secondary",
+                help=f"Khôi phục dữ liệu về Bước {target_step}"
+            )
+        with b_col2:
+            if entry.get("shape_str"):
+                st.markdown(f"<div style='font-size: 10.5px; color: #64748b; margin-top: 4px; text-align: right;'>{entry['shape_str']}</div>", unsafe_allow_html=True)
+        
+        st.markdown("<div style='margin-bottom: 6px;'></div>", unsafe_allow_html=True)
 
 # ---------------- SIDEBAR ----------------
 with st.sidebar:
@@ -401,6 +526,12 @@ with st.sidebar:
                 st.session_state.current_file_id = file_id
                 st.session_state.sidebar_file_loaded = True
                 st.session_state.analysis_results = {}
+                record_history(
+                    1,
+                    f"Tải lên tệp: {uploaded_file.name}",
+                    f"N = {len(st.session_state.loader.df):,} quan sát, {len(st.session_state.loader.df.columns)} biến",
+                    df=st.session_state.loader.df
+                )
                 st.sidebar.success(f"✓ Đã nạp: {uploaded_file.name}")
                 st.rerun()
             except Exception as e:
@@ -425,7 +556,7 @@ with st.sidebar:
     
     if df is not None:
         st.markdown(f"""
-        <div style="background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 12px 14px; margin-top: 10px; margin-bottom: 14px;">
+        <div style="background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 12px 14px; margin-top: 10px; margin-bottom: 12px;">
             <div style="font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">Dữ liệu hiện hành</div>
             <div style="font-size: 14px; font-weight: 700; color: #ffffff; margin-top: 3px; word-break: break-all;">{loader.filename}</div>
             <div style="display: flex; gap: 8px; margin-top: 8px;">
@@ -434,6 +565,13 @@ with st.sidebar:
             </div>
         </div>
         """, unsafe_allow_html=True)
+
+        # Popover Nhật ký thao tác trong Sidebar
+        n_hist_sb = st.session_state.history_mgr.count() if "history_mgr" in st.session_state else 0
+        sb_hist_label = f"Nhật ký thao tác ({n_hist_sb})" if n_hist_sb > 0 else "Nhật ký thao tác"
+        with st.sidebar.popover(sb_hist_label, use_container_width=True, help="Mở cửa sổ theo dõi lịch sử các thao tác phân tích và khôi phục nhanh"):
+            render_history_popup(key_prefix="sidebar_quick")
+
         if st.sidebar.button("🗑️ Đóng / Đổi tệp dữ liệu khác", use_container_width=True):
             st.session_state.loader = DataLoader()
             st.session_state.current_file_id = None
@@ -503,16 +641,25 @@ def on_stepper_change():
         st.session_state.active_step_num = new_step
         st.session_state.sidebar_menu_radio = MENU_LIST[new_step - 1]
 
-stepper_selected = st.pills(
-    "Workflow Navigation Stepper",
-    options=list(range(1, 11)),
-    default=current_step,
-    format_func=lambda x: f"{x}. {STEP_NAMES[x-1]}",
-    key="stepper_pills_val",
-    wrap=False,
-    on_change=on_stepper_change,
-    label_visibility="collapsed"
-)
+col_stepper, col_popover = st.columns([7.8, 2.2])
+
+with col_stepper:
+    stepper_selected = st.pills(
+        "Workflow Navigation Stepper",
+        options=list(range(1, 11)),
+        default=current_step,
+        format_func=lambda x: f"{x}. {STEP_NAMES[x-1]}",
+        key="stepper_pills_val",
+        wrap=False,
+        on_change=on_stepper_change,
+        label_visibility="collapsed"
+    )
+
+with col_popover:
+    n_hist_top = st.session_state.history_mgr.count() if "history_mgr" in st.session_state else 0
+    top_hist_label = f"Nhật ký ({n_hist_top})" if n_hist_top > 0 else "Nhật ký thao tác"
+    with st.popover(top_hist_label, use_container_width=True, help="Mở cửa sổ theo dõi lịch sử thao tác phân tích của từng step và khôi phục nhanh"):
+        render_history_popup(key_prefix="top_stepper")
 
 
 def render_page_footer(key_suffix: str = ""):
@@ -657,6 +804,12 @@ if df is None:
                     st.session_state.loader.load_file(bytes_data, welcome_file.name)
                     st.session_state.current_file_id = w_file_id
                     st.session_state.analysis_results = {}
+                    record_history(
+                        1,
+                        f"Tải lên tệp: {welcome_file.name}",
+                        f"N = {len(st.session_state.loader.df):,} quan sát, {len(st.session_state.loader.df.columns)} biến",
+                        df=st.session_state.loader.df
+                    )
                     st.rerun()
                 except Exception as e:
                     st.error(f"Lỗi đọc tệp: {str(e)}")
@@ -672,7 +825,7 @@ if df is None:
                 </div>
             </div>
         """, unsafe_allow_html=True)
-        if st.button("🚀 Nạp Dữ liệu Mẫu Ngay", use_container_width=True, type="primary"):
+        if st.button("🚀 Nạp Dữ liệu Mẫu Ngay", use_container_width=True, type="primary"):    
             load_sample()
             st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
@@ -925,6 +1078,12 @@ elif menu == "2. Tiền xử lý: Mã hóa & Làm sạch dữ liệu":
                     st.session_state.analysis_results = {}
                     if "temp_suggested_codes" in st.session_state:
                         del st.session_state["temp_suggested_codes"]
+                    record_history(
+                        2,
+                        f"Đổi tiền tố '{prefix_val}' ({len(batch_cols)} biến)",
+                        f"N = {len(loader.df):,} quan sát, {len(loader.df.columns)} biến • Áp dụng tiền tố cho {len(batch_cols)} cột",
+                        df=loader.df
+                    )
                     st.success(f"✓ Đã áp dụng tiền tố '{prefix_val}' cho {len(batch_cols)} biến thành công!")
                     st.rerun()
                 else:
@@ -932,7 +1091,7 @@ elif menu == "2. Tiền xử lý: Mã hóa & Làm sạch dữ liệu":
 
         col_btn_suggest, col_btn_reset = st.columns([2, 1])
         with col_btn_suggest:
-            if st.button("✨ Tự động nhận diện & Điền mã biến gợi ý (AI & Regex Auto-Suggest)", use_container_width=True, type="primary"):
+            if st.button("Tự động nhận diện & Điền mã biến gợi ý (Auto-Suggest)", use_container_width=True, type="primary"):
                 suggested_list = auto_suggest_column_codes(list(df.columns))
                 st.session_state.temp_suggested_codes = suggested_list
                 st.rerun()
@@ -942,6 +1101,12 @@ elif menu == "2. Tiền xử lý: Mã hóa & Làm sạch dữ liệu":
                 if "temp_suggested_codes" in st.session_state:
                     del st.session_state["temp_suggested_codes"]
                 st.session_state.analysis_results = {}
+                record_history(
+                    2,
+                    "Khôi phục tên cột ban đầu",
+                    f"N = {len(loader.df):,} quan sát, {len(loader.df.columns)} biến • Hoàn tác toàn bộ tên biến về gốc",
+                    df=loader.df
+                )
                 st.success("✓ Đã khôi phục tên cột ban đầu.")
                 st.rerun()
 
@@ -968,8 +1133,8 @@ elif menu == "2. Tiền xử lý: Mã hóa & Làm sạch dữ liệu":
             column_config={
                 "STT": st.column_config.NumberColumn("STT", disabled=True, width="small"),
                 "Tên cột hiện tại (Thô)": st.column_config.TextColumn("Tên cột hiện tại (Thô)", disabled=True, width="large"),
-                "Mã biến mới (Code)": st.column_config.TextColumn("Mã biến mới (Code) ✏️", width="medium", required=True),
-                "Nhãn nội dung câu hỏi (Label)": st.column_config.TextColumn("Nhãn nội dung câu hỏi (Label) ✏️", width="large"),
+                "Mã biến mới (Code)": st.column_config.TextColumn("Mã biến mới (Code)", width="medium", required=True),
+                "Nhãn nội dung câu hỏi (Label)": st.column_config.TextColumn("Nhãn nội dung câu hỏi (Label)", width="large"),
                 "Kiểu dữ liệu": st.column_config.TextColumn("Kiểu dữ liệu", disabled=True, width="small"),
             },
             use_container_width=True,
@@ -978,7 +1143,7 @@ elif menu == "2. Tiền xử lý: Mã hóa & Làm sạch dữ liệu":
             key="coding_editor_table_widget"
         )
 
-        if st.button("💾 Xác nhận & Cập nhật Mã hóa Biến vào Toàn bộ Hệ thống", type="primary", use_container_width=True, key="btn_save_coding_final"):
+        if st.button("Xác nhận & Cập nhật Mã hóa Biến vào Toàn bộ Hệ thống", type="primary", use_container_width=True, key="btn_save_coding_final"):
             new_codes = [str(x).strip() for x in edited_coding_df["Mã biến mới (Code)"]]
             if any(not c for c in new_codes):
                 st.error("Mã biến mới không được để trống!")
@@ -993,6 +1158,12 @@ elif menu == "2. Tiền xử lý: Mã hóa & Làm sạch dữ liệu":
                 st.session_state.analysis_results = {}
                 if "temp_suggested_codes" in st.session_state:
                     del st.session_state["temp_suggested_codes"]
+                record_history(
+                    2,
+                    "Cập nhật Codebook & Mã hóa Biến",
+                    f"N = {len(loader.df):,} quan sát, {len(loader.df.columns)} biến • Chuẩn hóa tên và nhãn {len(new_codes)} biến",
+                    df=loader.df
+                )
                 st.success("✓ Đã cập nhật mã hóa biến thành công cho toàn bộ hệ thống!")
                 st.rerun()
 
@@ -1025,13 +1196,19 @@ elif menu == "2. Tiền xử lý: Mã hóa & Làm sạch dữ liệu":
             map_preview_df = pd.DataFrame([{"Giá trị gốc (Text)": k, "Mã số quy đổi (Numeric)": v} for k, v in selected_mapping.items()])
             render_table(map_preview_df, file_name="Bang_Quy_Doi_Ma_Hoa.xlsx", sheet_name="Quy_doi", height=140, hide_index=True)
 
-        if st.button("⚡ Thực hiện Mã hóa Giá trị cho Các Cột Đã Chọn", type="primary", use_container_width=True, key="btn_apply_recode_run"):
+        if st.button("Thực hiện Mã hóa Giá trị cho Các Cột Đã Chọn", type="primary", use_container_width=True, key="btn_apply_recode_run"):
             if rec_cols:
                 df_rec = df.copy()
                 for col_name in rec_cols:
                     df_rec = recode_column_values(df_rec, col_name, selected_mapping)
                 loader.set_cleaned_df(df_rec, loader.variable_labels)
                 st.session_state.analysis_results = {}
+                record_history(
+                    2,
+                    f"Mã hóa thang đo Likert ({len(rec_cols)} cột)",
+                    f"N = {len(loader.df):,} quan sát, {len(loader.df.columns)} biến • Áp dụng quy tắc {scheme_choice}",
+                    df=loader.df
+                )
                 st.success(f"✓ Đã mã hóa giá trị thành công cho {len(rec_cols)} cột!")
                 st.rerun()
             else:
@@ -1056,6 +1233,12 @@ elif menu == "2. Tiền xử lý: Mã hóa & Làm sạch dữ liệu":
                 new_labels = {k: v for k, v in loader.variable_labels.items() if k not in cols_to_drop}
                 loader.set_cleaned_df(df_dropped, new_labels)
                 st.session_state.analysis_results = {}
+                record_history(
+                    2,
+                    f"Xóa {len(cols_to_drop)} cột siêu dữ liệu",
+                    f"N = {len(loader.df):,} quan sát, {len(loader.df.columns)} biến • Đã loại bỏ: {', '.join(cols_to_drop[:3])}",
+                    df=loader.df
+                )
                 st.success(f"✓ Đã xóa {len(cols_to_drop)} cột khỏi bộ dữ liệu!")
                 st.rerun()
             else:
@@ -1102,6 +1285,12 @@ elif menu == "2. Tiền xử lý: Mã hóa & Làm sạch dữ liệu":
                 df_na_clean, na_msg = clean_missing_values(df, method=method_key, target_cols=cols_arg, threshold_pct=40.0)
                 loader.set_cleaned_df(df_na_clean, loader.variable_labels)
                 st.session_state.analysis_results = {}
+                record_history(
+                    2,
+                    f"Xử lý khuyết thiếu ({missing_method.split('(')[0].strip()})",
+                    f"N = {len(loader.df):,} quan sát, {len(loader.df.columns)} biến • {na_msg}",
+                    df=loader.df
+                )
                 st.success(f"✓ {na_msg}")
                 st.rerun()
         else:
@@ -1117,6 +1306,12 @@ elif menu == "2. Tiền xử lý: Mã hóa & Làm sạch dữ liệu":
                 df_dedup, n_rm = clean_duplicates(df)
                 loader.set_cleaned_df(df_dedup, loader.variable_labels)
                 st.session_state.analysis_results = {}
+                record_history(
+                    2,
+                    f"Loại bỏ {n_rm} dòng trùng lặp",
+                    f"N = {len(loader.df):,} quan sát (giảm {n_rm}), {len(loader.df.columns)} biến",
+                    df=loader.df
+                )
                 st.success(f"✓ Đã loại bỏ {n_rm} dòng trùng lặp thành công! Cỡ mẫu hiện tại N = {len(df_dedup):,}.")
                 st.rerun()
         else:
@@ -1157,6 +1352,12 @@ elif menu == "2. Tiền xử lý: Mã hóa & Làm sạch dữ liệu":
                         df_out, out_msg = clean_outliers(df, outlier_target_cols, method="drop_zscore", z_threshold=3.0)
                     loader.set_cleaned_df(df_out, loader.variable_labels)
                     st.session_state.analysis_results = {}
+                    record_history(
+                        2,
+                        f"Xử lý ngoại lai ({outlier_method.split('(')[0].strip()})",
+                        f"N = {len(loader.df):,} quan sát, {len(loader.df.columns)} biến • {out_msg}",
+                        df=loader.df
+                    )
                     st.success(f"✓ {out_msg}")
                     st.rerun()
                 else:
@@ -1167,6 +1368,12 @@ elif menu == "2. Tiền xử lý: Mã hóa & Làm sạch dữ liệu":
         if st.button("↩️ Khôi phục Dữ liệu Ban đầu (Reset to Raw File)", key="btn_reset_clean_full"):
             loader.reset_to_original()
             st.session_state.analysis_results = {}
+            record_history(
+                2,
+                "Khôi phục dữ liệu ban đầu",
+                f"N = {len(loader.df):,} quan sát, {len(loader.df.columns)} biến • Hoàn tác toàn bộ tiền xử lý",
+                df=loader.df
+            )
             st.success("✓ Đã khôi phục dữ liệu ban đầu khi mới nạp tệp.")
             st.rerun()
 
@@ -1197,7 +1404,7 @@ elif menu == "2. Tiền xử lý: Mã hóa & Làm sạch dữ liệu":
                 use_container_width=True,
                 key="dl_cleaned_excel_btn"
             )
-            st.caption("✨ Tệp Excel tích hợp sẵn 2 Sheet: **Du_lieu_sach** (Dữ liệu sẵn sàng phân tích) và **Tu_dien_bien_Codebook** (Từ điển định nghĩa biến và câu hỏi gốc).")
+            st.caption("Tệp Excel tích hợp sẵn 2 Sheet: **Du_lieu_sach** (Dữ liệu sẵn sàng phân tích) và **Tu_dien_bien_Codebook** (Từ điển định nghĩa biến và câu hỏi gốc).")
 
         with col_d2:
             st.download_button(
@@ -1278,13 +1485,13 @@ elif menu == "3. Thống kê Nhân khẩu học & Mô tả":
                     disp_title = disp_title[:62] + "..."
                 st.markdown(f"""
                 <div style="font-size: 14px; font-weight: 750; color: #0f172a; margin-bottom: 6px;">
-                    📊 Biểu đồ Cơ cấu: <span style="color: #1d4ed8;">{disp_title}</span>
+                    Biểu đồ Cơ cấu: <span style="color: #1d4ed8;">{disp_title}</span>
                 </div>
                 """, unsafe_allow_html=True)
 
                 chart_type = st.radio(
                     "Dạng biểu đồ hiển thị:",
-                    ["📊 Biểu đồ Cột ngang (Khuyên dùng cho nhãn dài)", "🍩 Biểu đồ Tròn / Donut"],
+                    ["Biểu đồ Cột ngang", "Biểu đồ Tròn (Donut)"],
                     index=0 if has_long_labels else 1,
                     horizontal=True,
                     key=f"demo_chart_choice_{selected_cat}"
@@ -1374,6 +1581,13 @@ elif menu == "3. Thống kê Nhân khẩu học & Mô tả":
                     st.plotly_chart(fig, use_container_width=True, theme=None)
                 
             st.session_state.analysis_results[f"Freq_{selected_cat}"] = freq_df
+            if st.session_state.get(f"hist_freq_{selected_cat}") != len(df):
+                st.session_state[f"hist_freq_{selected_cat}"] = len(df)
+                record_history(
+                    3,
+                    f"Thống kê Tần số '{selected_cat}'",
+                    f"N = {len(df):,} quan sát • Phân loại cơ cấu {len(freq_df)} nhóm biến {selected_cat}"
+                )
 
     with tab_likert:
         st.markdown(r"""
@@ -1426,6 +1640,13 @@ elif menu == "3. Thống kê Nhân khẩu học & Mô tả":
                     st.plotly_chart(fig, use_container_width=True, theme=None)
                 
             st.session_state.analysis_results["Descriptive_Stats"] = desc_df
+            if st.session_state.get("hist_likert_recorded") != len(selected_num):
+                st.session_state.hist_likert_recorded = len(selected_num)
+                record_history(
+                    3,
+                    f"Thống kê Mô tả Thang đo ({len(selected_num)} biến)",
+                    f"N = {len(df):,} quan sát • Tính toán Mean, SD, Skewness, Kurtosis cho {len(selected_num)} biến"
+                )
 
 
 # ---------------- MENU 4: CRONBACH'S ALPHA ----------------
@@ -1445,9 +1666,9 @@ elif menu == "4. Độ tin cậy thang đo (Cronbach's Alpha)":
             if prefix:
                 detected_scales.setdefault(prefix, []).append(c)
 
-    mode = st.radio("Chế độ phân tích:", ["⚡ Phân tích hàng loạt tất cả các thang đo", "🎯 Phân tích một thang đo tùy chỉnh"], horizontal=True)
+    mode = st.radio("Chế độ phân tích:", ["Phân tích hàng loạt tất cả các thang đo", "Phân tích một thang đo tùy chọn"], horizontal=True)
     
-    if mode == "⚡ Phân tích hàng loạt tất cả các thang đo":
+    if mode == "Phân tích hàng loạt tất cả các thang đo":
         if detected_scales:
             summary_list = []
             details_dict = {}
@@ -1470,6 +1691,13 @@ elif menu == "4. Độ tin cậy thang đo (Cronbach's Alpha)":
             st.markdown("##### Bảng Tổng hợp Độ tin cậy tất cả các Thang đo")
             render_table(df_batch, file_name="Tong_Hop_Cronbach_Alpha.xlsx", sheet_name="Cronbach_Alpha")
             st.session_state.analysis_results["Cronbach_Summary"] = df_batch
+            if st.session_state.get("hist_cronbach_batch") != len(summary_list):
+                st.session_state.hist_cronbach_batch = len(summary_list)
+                record_history(
+                    4,
+                    f"Kiểm định Cronbach's Alpha ({len(summary_list)} thang đo)",
+                    f"N = {len(df):,} quan sát • Đánh giá độ tin cậy thang đo: {', '.join(details_dict.keys())}"
+                )
             
             st.markdown("---")
             selected_detail = st.selectbox("Xem chi tiết bảng tương quan biến - tổng của thang đo:", list(details_dict.keys()))
@@ -1574,6 +1802,13 @@ elif menu == "4. Độ tin cậy thang đo (Cronbach's Alpha)":
                 narr = generate_reliability_narrative(res)
                 st.markdown(f'<div class="academic-narrative">{narr}</div>', unsafe_allow_html=True)
                 st.session_state.analysis_results[f"Cronbach_{custom_scale_name}"] = res["items_table"]
+                if st.session_state.get(f"hist_cronbach_{custom_scale_name}") != len(custom_items):
+                    st.session_state[f"hist_cronbach_{custom_scale_name}"] = len(custom_items)
+                    record_history(
+                        4,
+                        f"Cronbach's Alpha: {custom_scale_name} ({len(custom_items)} biến)",
+                        f"N = {len(df):,} quan sát • Alpha = {res['overall_alpha']:.3f} ({res['scale_quality']})"
+                    )
 
 
 # ---------------- MENU 5: T-TEST & ANOVA ----------------
@@ -1620,12 +1855,18 @@ elif menu == "5. So sánh Trung bình (T-Test & ANOVA)":
                             "items": sc_items,
                             "method": "mean"
                         }
+                    record_history(
+                        5,
+                        f"Tính Mean Score ({len(detected_factors)} thang đo)",
+                        f"N = {len(loader.df):,} quan sát, {len(loader.df.columns)} biến • Tạo các cột: {', '.join([f'MEAN_{k}' for k in detected_factors.keys()])}",
+                        df=loader.df
+                    )
                     st.success(f"✓ Đã tự động tạo {len(detected_factors)} biến điểm trung bình nhân tố: {', '.join([f'MEAN_{k}' for k in detected_factors.keys()])}")
                     st.rerun()
             st.markdown("<hr style='margin: 12px 0;'>", unsafe_allow_html=True)
             
         # 2. Custom Factor Score Builder
-        st.markdown("<div style='font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 8px;'>➕ Tạo Điểm Nhân tố / Thang đo Tùy chỉnh</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size: 14px; font-weight: 700; color: #0f172a; margin-bottom: 8px;'>Tạo Điểm Nhân tố / Thang đo Tùy chỉnh</div>", unsafe_allow_html=True)
         cf_col1, cf_col2, cf_col3 = st.columns([1.5, 2.5, 1.5])
         with cf_col1:
             custom_factor_name = st.text_input("**Tên biến nhân tố mới:**", value=f"MEAN_FACTOR_{len(st.session_state.computed_factor_scores)+1}", help="Tên cột sẽ được tạo trong dữ liệu (ví dụ: MEAN_TR, CHATLUONG_MEAN, FS_HAI_LONG)")
@@ -1661,6 +1902,12 @@ elif menu == "5. So sánh Trung bình (T-Test & ANOVA)":
                         "items": custom_factor_items,
                         "method": custom_calc_method
                     }
+                    record_history(
+                        5,
+                        f"Tạo điểm nhân tố '{clean_name}'",
+                        f"N = {len(loader.df):,} quan sát, {len(loader.df.columns)} biến • Thêm biến đại diện {clean_name} ({desc_method})",
+                        df=loader.df
+                    )
                     st.success(f"✓ Đã tính thành công điểm nhân tố **{clean_name}**! (N = {len(score_series)}, Mean = {score_series.mean():.3f}, SD = {score_series.std():.3f})")
                     st.rerun()
                 except Exception as ex:
@@ -1681,8 +1928,8 @@ elif menu == "5. So sánh Trung bình (T-Test & ANOVA)":
     dep_mode = st.radio(
         "**Nguồn biến phụ thuộc (Kiểm tra trung bình):**",
         [
-            "⭐ Điểm đại diện Nhân tố (Mean Score / Factor Score) — Khuyên dùng trong NCKH",
-            "📌 Từng biến quan sát riêng lẻ (Single Survey Item)"
+            "Điểm đại diện Nhân tố (Mean Score / Factor Score) — Khuyên dùng trong NCKH",
+            "Từng biến quan sát riêng lẻ (Single Survey Item)"
         ],
         horizontal=True
     )
@@ -1690,7 +1937,7 @@ elif menu == "5. So sánh Trung bình (T-Test & ANOVA)":
     c1, c2 = st.columns(2)
     
     with c1:
-        if dep_mode.startswith("⭐"):
+        if dep_mode.startswith("Điểm đại diện"):
             # Prepare factor options
             factor_options = {}
             for fc in existing_factor_cols:
@@ -1796,6 +2043,11 @@ elif menu == "5. So sánh Trung bình (T-Test & ANOVA)":
                     narr = generate_ttest_narrative(res_t)
                     st.markdown(f'<div class="academic-narrative">{narr}</div>', unsafe_allow_html=True)
                     st.session_state.analysis_results[f"TTest_{dep_var}_{group_var}"] = res_t["tests_table"]
+                    record_history(
+                        5,
+                        f"Kiểm định T-Test ({dep_var} theo {group_var})",
+                        f"N = {len(df):,} quan sát • So sánh trung bình biến {dep_var} theo {group_var}"
+                    )
 
     else:
         with c2:
@@ -1848,6 +2100,11 @@ elif menu == "5. So sánh Trung bình (T-Test & ANOVA)":
                     narr_a = generate_anova_narrative(res_a)
                     st.markdown(f'<div class="academic-narrative">{narr_a}</div>', unsafe_allow_html=True)
                     st.session_state.analysis_results[f"ANOVA_{dep_var}_{group_var}"] = res_a["anova_table"]
+                    record_history(
+                        5,
+                        f"Kiểm định One-Way ANOVA ({dep_var} theo {group_var})",
+                        f"N = {len(df):,} quan sát • Phân tích phương sai biến {dep_var} theo {n_grp} nhóm {group_var}"
+                    )
 
 
 # ---------------- MENU 6: EFA ----------------
@@ -1924,6 +2181,11 @@ elif menu == "6. Phân tích Nhân tố Khám phá (EFA)":
                     st.session_state.efa_result = None
                 else:
                     st.session_state.efa_result = res_efa
+                    record_history(
+                        6,
+                        f"Phân tích EFA ({len(selected_items)} biến, {method}, {rotation})",
+                        f"N = {len(df):,} quan sát • KMO = {res_efa.get('kmo_total', 0):.3f}, Trích {res_efa.get('n_factors', 0)} nhân tố ({res_efa.get('cum_variance', 0):.1f}% phương sai)"
+                    )
 
     # Render results when available (persists smoothly across option toggles)
     if st.session_state.efa_result is not None:
@@ -2056,6 +2318,11 @@ elif menu == "6. Phân tích Nhân tố Khám phá (EFA)":
                                 st.error(res_new["error"])
                             else:
                                 st.session_state.efa_result = res_new
+                                record_history(
+                                    6,
+                                    f"Tái ước lượng EFA (Đã loại {len(items_below_thresh)} biến)",
+                                    f"N = {len(df):,} quan sát • Còn {len(new_items)} biến quan sát, trích {res_new.get('n_factors', 0)} nhân tố"
+                                )
                                 st.success(f"✓ Đã loại bỏ thành công {len(items_below_thresh)} biến ({', '.join(items_below_thresh)})! Toàn bộ ma trận hệ số tải mới đã được tính toán lại.")
                                 st.rerun()
                 
@@ -2188,6 +2455,11 @@ elif menu == "7. CFA & CB-SEM (Mô hình hiệp phương sai)":
         if "error" in res_cfa:
             st.error(res_cfa["error"])
         else:
+            record_history(
+                7,
+                "Ước lượng Mô hình CFA / CB-SEM",
+                f"N = {len(df):,} quan sát • CMIN/df = {res_cfa['cmin_df']:.3f}, CFI = {res_cfa['cfi']:.3f}, RMSEA = {res_cfa['rmsea']:.3f}"
+            )
             # KPI Fit Cards
             k1, k2, k3, k4 = st.columns(4)
             with k1:
@@ -2305,6 +2577,12 @@ elif menu == "8. PLS-SEM (Bình phương bé nhất từng phần)":
             pls.fit(df)
             measurement_res = pls.get_measurement_summary(df)
             boot_res = pls.bootstrap(df, n_boot=n_boot)
+
+        record_history(
+            8,
+            f"Ước lượng PLS-SEM & Bootstrapping (B = {n_boot})",
+            f"N = {len(df):,} quan sát • Mô hình {len(detected_scales)} khái niệm, {len(boot_res['paths_table'])} giả thuyết tác động"
+        )
 
         # Path Diagram for PLS-SEM
         pls_paths_with_beta = []
@@ -2553,6 +2831,11 @@ elif menu == "9. Machine Learning trong NCKH":
                         render_table(res_sup["coefficients_table"], file_name=f"ML_{algo_choice}_He_So_Hoi_Quy.xlsx", sheet_name="Coefficients")
 
                     st.session_state.analysis_results[f"ML_Supervised_{algo_choice}"] = res_sup["metrics_table"]
+                    record_history(
+                        9,
+                        f"Huấn luyện ML: {algo_choice} ({target_var})",
+                        f"N = {len(df):,} quan sát • Mô hình {'Phân loại' if res_sup['is_classification'] else 'Hồi quy'} {algo_choice} với {len(feature_vars)} đặc trưng"
+                    )
 
     # ---------------- TAB 3: UNSUPERVISED LEARNING ----------------
     with ml_tabs[2]:
@@ -2588,6 +2871,11 @@ elif menu == "9. Machine Learning trong NCKH":
                         render_table(res_km["cluster_profile_table"], file_name="KMeans_Ho_So_Dac_Tinh_Cum.xlsx", sheet_name="Profiles")
                         
                         st.session_state.analysis_results["KMeans_Profiles"] = res_km["cluster_profile_table"]
+                        record_history(
+                            9,
+                            f"Phân cụm K-Means (K = {n_clusters_km})",
+                            f"N = {len(df):,} quan sát • Phân chia {n_clusters_km} cụm dựa trên {len(km_features)} biến"
+                        )
 
         elif unsub_choice == "Phân cụm Phân tầng (Hierarchical Clustering)":
             c1, c2, c3 = st.columns(3)
@@ -2615,6 +2903,11 @@ elif menu == "9. Machine Learning trong NCKH":
                         render_table(res_hc["cluster_profiles"], file_name="HCA_Ho_So_Cum.xlsx", sheet_name="Profiles")
                         
                     st.session_state.analysis_results["Hierarchical_Profiles"] = res_hc["cluster_profiles"]
+                    record_history(
+                        9,
+                        f"Phân cụm Phân tầng (K = {n_h_clusters}, {linkage_method})",
+                        f"N = {len(df):,} quan sát • Phân nhóm {n_h_clusters} cụm trên {len(h_features)} biến"
+                    )
 
         else: # PCA
             c1, c2 = st.columns(2)
@@ -2650,6 +2943,11 @@ elif menu == "9. Machine Learning trong NCKH":
                         st.plotly_chart(fig_biplot, use_container_width=True, theme=None)
                         
                     st.session_state.analysis_results["PCA_Variance"] = res_pca["variance_table"]
+                    record_history(
+                        9,
+                        f"Phân tích Thành phần Chính PCA ({n_comps} components)",
+                        f"N = {len(df):,} quan sát • Trích {n_comps} thành phần từ {len(pca_features)} biến ({res_pca['total_variance_explained']:.1f}% phương sai)"
+                    )
 
     # ---------------- TAB 4: NEURAL NETS & NLP ----------------
     with ml_tabs[3]:
@@ -2715,6 +3013,11 @@ elif menu == "9. Machine Learning trong NCKH":
                     render_table(res_sent["detailed_table"].head(30), file_name="Sentiment_Chi_Tiet_Danh_Gia.xlsx", sheet_name="Details")
                     
                     st.session_state.analysis_results["Sentiment_Summary"] = res_sent["summary_table"]
+                    record_history(
+                        9,
+                        f"Phân tích Cảm xúc Văn bản ({text_target})",
+                        f"N = {len(df):,} quan sát • Polarity: {res_sent['average_polarity']:+.3f} ({res_sent['overall_sentiment']})"
+                    )
 
         elif "LDA" in nlp_choice:
             st.markdown(r"""
@@ -2752,6 +3055,11 @@ elif menu == "9. Machine Learning trong NCKH":
                     st.markdown("##### 3. Mẫu Phân loại Ý kiến Đáp viên theo Chủ đề")
                     render_table(res_lda["sample_assignments"], file_name="LDA_Mau_Phan_Loai_Y_Kien.xlsx", sheet_name="Sample_Assignments")
                     st.session_state.analysis_results["LDA_Topics"] = res_lda["topics_table"]
+                    record_history(
+                        9,
+                        f"Khai phá Chủ đề LDA ({n_topics_lda} chủ đề)",
+                        f"N = {len(df):,} phản hồi văn bản • Trích xuất {n_topics_lda} cụm chủ đề và từ khóa tiềm ẩn"
+                    )
 
         else: # ANN / MLP
             st.markdown(r"""
@@ -2790,6 +3098,11 @@ elif menu == "9. Machine Learning trong NCKH":
                             render_table(res_ann["confusion_matrix"], file_name="ANN_Ma_Tran_Nham_Lan.xlsx", sheet_name="Confusion_Matrix")
                             
                         st.session_state.analysis_results["ANN_Performance"] = res_ann["metrics_table"]
+                        record_history(
+                            9,
+                            f"Huấn luyện Mạng Nơ-ron ANN ({ann_target})",
+                            f"N = {len(df):,} quan sát • Kiến trúc ẩn {hidden_neurons}, {max_iter_ann} Epochs"
+                        )
 
 
 # ---------------- MENU 10: XUẤT BÁO CÁO ----------------
@@ -2850,6 +3163,14 @@ elif menu == "10. Xuất Báo cáo Học thuật (Word/Excel)":
                 file_name=excel_filename,
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True
+            )
+
+        if st.session_state.get("last_recorded_report") != f"{clean_title}_{len(st.session_state.analysis_results)}":
+            st.session_state.last_recorded_report = f"{clean_title}_{len(st.session_state.analysis_results)}"
+            record_history(
+                10,
+                f"Xuất Báo cáo Học thuật APA 7th ({len(st.session_state.analysis_results)} bảng)",
+                f"Đã xuất trọn bộ {len(st.session_state.analysis_results)} kết quả phân tích sang Word & Excel • Tệp: {word_filename}"
             )
 
 

@@ -472,21 +472,21 @@ n_samples_str = f"{len(df):,} quan sát" if df is not None else "Chưa nạp d�
 filename_str = loader.filename if loader.filename else "Chưa chọn tệp"
 
 st.markdown(f"""
-<div class="pro-header" style="background: linear-gradient(135deg, #0b1120 0%, #1e293b 55%, #1d4ed8 100%); border-radius: 12px; padding: 22px 28px; margin-bottom: 20px; box-shadow: 0 10px 25px -5px rgba(11, 17, 32, 0.3); border: 1px solid rgba(255, 255, 255, 0.15);">
-    <div class="brand-row" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
-        <div style="display: flex; align-items: center; gap: 16px;">
-            {f'<img src="{LOGO_DARK_SRC}" style="height: 64px; width: auto; object-fit: contain;" alt="StaNDTistics Logo" />' if LOGO_DARK_SRC else ''}
+<div class="pro-header">
+    <div class="brand-row">
+        <div class="brand-info">
+            {f'<img src="{LOGO_DARK_SRC}" class="brand-logo" alt="StaNDTistics Logo" />' if LOGO_DARK_SRC else ''}
             <div>
-                <div class="brand-title" style="font-size: 24px; font-weight: 850; letter-spacing: -0.4px; margin: 0; color: #ffffff;">
+                <div class="brand-title">
                     SmartResearch Studio
                 </div>
-                <div class="brand-subtitle" style="font-size: 13px; color: #cbd5e1; margin-top: 4px; font-weight: 500;">
+                <div class="brand-subtitle">
                     Nền tảng Phân tích Thống kê Toàn diện & Mô hình Cấu trúc cho Nghiên cứu Khoa học Xã hội
                 </div>
             </div>
         </div>
-        <div class="meta-pill" style="background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255, 255, 255, 0.3); padding: 7px 16px; border-radius: 9999px; font-size: 12.5px; font-weight: 750; color: #ffffff; display: flex; align-items: center; gap: 8px;">
-            <span class="dot" style="width: 9px; height: 9px; border-radius: 50%; background-color: #10b981; box-shadow: 0 0 10px #10b981; display: inline-block;"></span>
+        <div class="meta-pill">
+            <span class="dot"></span>
             <span>{filename_str} • {n_samples_str}</span>
         </div>
     </div>
@@ -626,12 +626,12 @@ def render_page_footer(key_suffix: str = ""):
 
 
 if df is None:
-    welcome_logo_html = f'<div style="margin-bottom: 20px;"><img src="{LOGO_LIGHT_SRC}" style="height: 110px; width: auto; object-fit: contain;" alt="StaNDTistics Logo" /></div>' if LOGO_LIGHT_SRC else '<div style="font-size: 48px; margin-bottom: 12px;">📁</div>'
+    welcome_logo_html = f'<div class="welcome-logo-container"><img src="{LOGO_LIGHT_SRC}" class="welcome-logo-img" alt="StaNDTistics Logo" /></div>' if LOGO_LIGHT_SRC else '<div style="font-size: 48px; margin-bottom: 12px;">📁</div>'
     st.markdown(f"""
-    <div class="content-box" style="text-align: center; padding: 36px 24px 20px 24px;">
+    <div class="content-box welcome-hero-card">
         {welcome_logo_html}
-        <h3 style="font-size: 22px; font-weight: 800; color: #0f172a; margin-bottom: 8px;">Chào mừng bạn đến với SmartResearch Studio</h3>
-        <p style="color: #475569; font-size: 15px; max-width: 650px; margin: 0 auto 20px auto; line-height: 1.6;">
+        <h3 class="welcome-title">Chào mừng bạn đến với SmartResearch Studio</h3>
+        <p class="welcome-desc">
             Hệ thống chuyên sâu phân tích định lượng NCKH xã hội theo chuẩn học thuật APA 7th Edition. Hỗ trợ tệp <b>Excel (.xlsx, .xls, .csv)</b> và <b>SPSS (.sav, .zsav)</b> với bảo toàn nhãn biến.
         </p>
     </div>
@@ -640,9 +640,9 @@ if df is None:
     col_upload, col_sample = st.columns(2)
     with col_upload:
         st.markdown("""
-        <div style="background: #ffffff; border: 1.5px dashed #3b82f6; border-radius: 12px; padding: 20px; height: 100%;">
-            <div style="font-weight: 700; color: #1e3a8a; font-size: 16px; margin-bottom: 6px;">📂 Tải lên Dữ liệu Nghiên cứu của bạn</div>
-            <div style="font-size: 13px; color: #64748b; margin-bottom: 12px;">Hỗ trợ .xlsx, .xls, .csv, .sav. Tự động nhận diện và làm sạch dữ liệu.</div>
+        <div class="welcome-action-card welcome-upload-card">
+            <div class="welcome-card-header">📂 Tải lên Dữ liệu Nghiên cứu của bạn</div>
+            <div class="welcome-card-sub">Hỗ trợ .xlsx, .xls, .csv, .sav. Tự động nhận diện và làm sạch dữ liệu.</div>
         """, unsafe_allow_html=True)
         welcome_file = st.file_uploader(
             "Chọn tệp từ máy tính:",
@@ -664,10 +664,10 @@ if df is None:
 
     with col_sample:
         st.markdown("""
-        <div style="background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 12px; padding: 20px; height: 100%; display: flex; flex-direction: column; justify-content: space-between;">
+        <div class="welcome-action-card welcome-sample-card">
             <div>
-                <div style="font-weight: 700; color: #0f172a; font-size: 16px; margin-bottom: 6px;">🧪 Khám phá với Bộ Dữ liệu Mẫu</div>
-                <div style="font-size: 13.5px; color: #475569; line-height: 1.5; margin-bottom: 16px;">
+                <div class="welcome-card-header">🧪 Khám phá với Bộ Dữ liệu Mẫu</div>
+                <div class="welcome-card-sub" style="margin-bottom: 16px;">
                     Bộ dữ liệu mẫu nghiên cứu hành vi người dùng (N = 350) với đầy đủ 26 biến số gồm 5 nhân tố (PE, EE, SI, FC, BI) và thông tin nhân khẩu học.
                 </div>
             </div>

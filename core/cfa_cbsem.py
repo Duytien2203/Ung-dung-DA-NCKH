@@ -86,19 +86,22 @@ def run_cfa_cbsem(df: pd.DataFrame, model_syntax: str, constructs_dict: dict = N
         return {"error": f"Lỗi khi ước lượng mô hình SEM: {str(e)}"}
         
     # 1. Model Fit Indices
-    stats_df = calc_stats(mod)
-    # stats_df has columns: DoF, chi2, chi2 p-value, CFI, GFI, AGFI, NFI, TLI, RMSEA, AIC, BIC, etc.
-    dof = float(stats_df["DoF"].values[0]) if "DoF" in stats_df else 0.0
-    chi2 = float(stats_df["chi2"].values[0]) if "chi2" in stats_df else 0.0
-    chi2_p = float(stats_df["chi2 p-value"].values[0]) if "chi2 p-value" in stats_df else 0.0
+    try:
+        stats_df = calc_stats(mod)
+    except Exception:
+        stats_df = pd.DataFrame()
+        
+    dof = float(stats_df["DoF"].values[0]) if "DoF" in stats_df and len(stats_df["DoF"]) > 0 else 0.0
+    chi2 = float(stats_df["chi2"].values[0]) if "chi2" in stats_df and len(stats_df["chi2"]) > 0 else 0.0
+    chi2_p = float(stats_df["chi2 p-value"].values[0]) if "chi2 p-value" in stats_df and len(stats_df["chi2 p-value"]) > 0 else 0.0
     cmin_df = chi2 / dof if dof > 0 else 0.0
-    cfi = float(stats_df["CFI"].values[0]) if "CFI" in stats_df else 0.0
-    tli = float(stats_df["TLI"].values[0]) if "TLI" in stats_df else 0.0
-    gfi = float(stats_df["GFI"].values[0]) if "GFI" in stats_df else 0.0
-    agfi = float(stats_df["AGFI"].values[0]) if "AGFI" in stats_df else 0.0
-    rmsea = float(stats_df["RMSEA"].values[0]) if "RMSEA" in stats_df else 0.0
-    aic = float(stats_df["AIC"].values[0]) if "AIC" in stats_df else 0.0
-    bic = float(stats_df["BIC"].values[0]) if "BIC" in stats_df else 0.0
+    cfi = float(stats_df["CFI"].values[0]) if "CFI" in stats_df and len(stats_df["CFI"]) > 0 else 0.0
+    tli = float(stats_df["TLI"].values[0]) if "TLI" in stats_df and len(stats_df["TLI"]) > 0 else 0.0
+    gfi = float(stats_df["GFI"].values[0]) if "GFI" in stats_df and len(stats_df["GFI"]) > 0 else 0.0
+    agfi = float(stats_df["AGFI"].values[0]) if "AGFI" in stats_df and len(stats_df["AGFI"]) > 0 else 0.0
+    rmsea = float(stats_df["RMSEA"].values[0]) if "RMSEA" in stats_df and len(stats_df["RMSEA"]) > 0 else 0.0
+    aic = float(stats_df["AIC"].values[0]) if "AIC" in stats_df and len(stats_df["AIC"]) > 0 else 0.0
+    bic = float(stats_df["BIC"].values[0]) if "BIC" in stats_df and len(stats_df["BIC"]) > 0 else 0.0
     
     fit_rows = [
         {"Chỉ số độ phù hợp": "Chi-square (CMIN)", "Giá trị mô hình": round(chi2, 3), "Ngưỡng tiêu chuẩn": "Càng nhỏ càng tốt, p > 0.05", "Đánh giá": "Đạt" if chi2_p > 0.05 else "Nhạy cảm với cỡ mẫu N"},
@@ -115,7 +118,15 @@ def run_cfa_cbsem(df: pd.DataFrame, model_syntax: str, constructs_dict: dict = N
     df_fit = pd.DataFrame(fit_rows)
     
     # 2. Inspect estimates
-    inspect_df = mod.inspect(std_est=True)
+    try:
+        inspect_df = mod.inspect(std_est=True)
+    except Exception:
+        try:
+            inspect_df = mod.inspect()
+            if "Est. Std" not in inspect_df.columns:
+                inspect_df["Est. Std"] = inspect_df["Estimate"]
+        except Exception as e_insp:
+            return {"error": f"Lỗi khi trích xuất hệ số ước lượng SEM: {str(e_insp)}"}
     # Filter measurement model (loadings): op == '~' where rval is latent
     # In semopy, latent =~ indicator is expressed as indicator ~ latent in inspect
     # Latents are right-hand side of measurement equation

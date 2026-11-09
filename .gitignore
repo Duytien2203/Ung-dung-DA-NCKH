@@ -52,4 +52,9 @@ desktop.ini
 *.tmp
 temp/
 scratch/
-data/feedbacks.jsonl
+data/
+*.mp4
+*.mp3
+*.wav
+video_production/
+

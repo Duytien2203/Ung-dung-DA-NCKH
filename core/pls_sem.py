@@ -26,14 +26,19 @@ class PLSModel:
         modes: dict of {'AT': 'A', 'SN': 'A', 'BI': 'A'} (Default is Mode A - reflective)
         """
         self.constructs = constructs
-        self.structural_paths = structural_paths
         self.construct_names = list(constructs.keys())
         self.modes = modes if modes else {c: 'A' for c in self.construct_names}
+        
+        # Filter valid structural paths to avoid KeyError
+        self.structural_paths = [
+            (src, tgt) for src, tgt in structural_paths 
+            if src in self.construct_names and tgt in self.construct_names and src != tgt
+        ]
         
         # Inferred predecessors and successors
         self.predecessors = {c: [] for c in self.construct_names}
         self.successors = {c: [] for c in self.construct_names}
-        for src, tgt in structural_paths:
+        for src, tgt in self.structural_paths:
             self.predecessors[tgt].append(src)
             self.successors[src].append(tgt)
             
@@ -240,6 +245,8 @@ class PLSModel:
         n = len(data)
         
         path_list = list(self.inner_paths.keys())
+        if not path_list:
+            return {"paths_table": pd.DataFrame(), "mediation_table": pd.DataFrame()}
         boot_paths = {p: [] for p in path_list}
         
         # Check mediation: src -> med -> tgt

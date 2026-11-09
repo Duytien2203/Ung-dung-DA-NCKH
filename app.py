@@ -2530,35 +2530,77 @@ elif menu == "7. CFA & CB-SEM (Mô hình hiệp phương sai)":
     - Độ phân biệt: Tiêu chuẩn Fornell & Larcker ($\sqrt{AVE} > r_{ij}$) và $HTMT < 0.85$.
     """)
     
-    detected_scales = {}
-    for c in df.select_dtypes(include=[np.number]).columns:
-        if c.lower() not in ['id', 'use', 'gioitinh', 'dotuoi', 'thunhap', 'hocvan']:
-            prefix = ''.join([char for char in c if not char.isdigit()]).strip('_')
-            if prefix:
-                detected_scales.setdefault(prefix, []).append(c)
+    detected_scales = auto_detect_factors(df)
+    if not detected_scales:
+        for c in df.select_dtypes(include=[np.number]).columns:
+            if c.lower() not in ['id', 'gioitinh', 'dotuoi', 'thunhap', 'hocvan', 'ts_batch']:
+                prefix = ''.join([char for char in str(c) if not char.isdigit()]).strip('_')
+                if len(prefix) >= 2:
+                    detected_scales.setdefault(prefix, []).append(str(c))
+        detected_scales = {k: v for k, v in detected_scales.items() if len(v) >= 2}
 
-    default_syntax = ""
-    for prefix, items in detected_scales.items():
-        if len(items) >= 2:
-            default_syntax += f"{prefix} =~ {' + '.join(items)}\n"
+    tab_cfa_gui, tab_cfa_raw = st.tabs([
+        "🎯 Thiết lập Trực quan (Khuyến nghị)",
+        "📝 Soạn Cú pháp Chuyên sâu (semopy Syntax)"
+    ])
+
+    with tab_cfa_gui:
+        st.markdown("##### 1. Chọn Thang đo tham gia mô hình:")
+        cfa_selected_scales = st.multiselect(
+            "Chọn các thang đo:",
+            options=list(detected_scales.keys()),
+            default=list(detected_scales.keys()),
+            key="cfa_selected_scales_list"
+        )
+        active_cfa_dict = {k: detected_scales[k] for k in cfa_selected_scales if k in detected_scales}
+        
+        cfa_mode_choice = st.radio(
+            "**Mục đích phân tích:**",
+            [
+                "Phân tích Nhân tố Khẳng định (CFA đo lường thuần túy)",
+                "Mô hình Phương trình Cấu trúc (CB-SEM - Đo lường + Giả thuyết tác động)"
+            ],
+            horizontal=True,
+            key="cfa_mode_choice_radio"
+        )
+        
+        auto_syntax_lines = []
+        for sc, items in active_cfa_dict.items():
+            auto_syntax_lines.append(f"{sc} =~ {' + '.join(items)}")
             
-    if "AT" in detected_scales and "BI" in detected_scales and "PU" in detected_scales:
-        default_syntax += "AT ~ PU + PE + TR\n"
-        default_syntax += "BI ~ AT + PU\n"
+        if "CB-SEM" in cfa_mode_choice and len(cfa_selected_scales) >= 2:
+            st.markdown("##### 2. Thiết lập Giả thuyết Tác động Cấu trúc (Hồi quy giữa các biến ẩn):")
+            col_y, col_x = st.columns([1, 2])
+            with col_y:
+                target_latent = st.selectbox("Biến kết quả (Y):", cfa_selected_scales, index=len(cfa_selected_scales)-1, key="cfa_target_latent")
+            with col_x:
+                cand_preds = [s for s in cfa_selected_scales if s != target_latent]
+                preds_latent = st.multiselect(f"Các biến nguyên nhân tác động vào {target_latent} (X):", cand_preds, default=cand_preds[:min(3, len(cand_preds))], key="cfa_preds_latent")
+            if target_latent and preds_latent:
+                auto_syntax_lines.append(f"{target_latent} ~ {' + '.join(preds_latent)}")
+                
+        compiled_gui_syntax = "\n".join(auto_syntax_lines)
+        with st.expander("👁️ Xem trước cú pháp tự động sinh:", expanded=False):
+            st.code(compiled_gui_syntax, language="text")
 
-    st.markdown("##### Khai báo Mô hình Phương trình Cấu trúc (semopy Syntax):")
-    syntax_input = st.text_area(
-        "Khai báo mô hình đo lường (=~) và mô hình cấu trúc (~):",
-        value=default_syntax,
-        height=160
-    )
+    with tab_cfa_raw:
+        st.caption("Cú pháp chuẩn semopy: `=~` khai báo thang đo đo lường; `~` hồi quy cấu trúc; `~~` hiệp phương sai sai số.")
+        raw_syntax_input = st.text_area(
+            "Soạn thảo cú pháp semopy:",
+            value=compiled_gui_syntax,
+            height=180,
+            key="cfa_raw_syntax_area"
+        )
+
+    chosen_syntax = raw_syntax_input if (raw_syntax_input and raw_syntax_input.strip() != compiled_gui_syntax.strip()) else compiled_gui_syntax
     
     if st.button("🚀 Chạy Ước lượng CB-SEM / CFA", use_container_width=True):
         with st.spinner("Đang ước lượng mô hình Maximum Likelihood (ML)..."):
-            res_cfa = run_cfa_cbsem(df, syntax_input, detected_scales)
+            res_cfa = run_cfa_cbsem(df, chosen_syntax, active_cfa_dict)
             
         if "error" in res_cfa:
             st.error(res_cfa["error"])
+            st.info("💡 Mẹo: Nếu mô hình có nhiều biến hoặc chỉ số CFI chưa đạt, bạn có thể chuyển sang Bước 8 (PLS-SEM). Thuật toán PLS-SEM không đòi hỏi phân phối chuẩn đa biến và xử lý số liệu khảo sát linh hoạt hơn.")
         else:
             record_history(
                 7,
@@ -2659,26 +2701,113 @@ elif menu == "8. PLS-SEM (Bình phương bé nhất từng phần)":
     - Mô hình cấu trúc: Bootstrapping để tính $p$-value và $t$-stat; Đánh giá $R^2$, kích thước ảnh hưởng $f^2$, VIF $< 3.0$.
     """)
     
-    detected_scales = {}
-    for c in df.select_dtypes(include=[np.number]).columns:
-        if c.lower() not in ['id', 'use', 'gioitinh', 'dotuoi', 'thunhap', 'hocvan']:
-            prefix = ''.join([char for char in c if not char.isdigit()]).strip('_')
-            if prefix:
-                detected_scales.setdefault(prefix, []).append(c)
+    detected_scales = auto_detect_factors(df)
+    if not detected_scales:
+        for c in df.select_dtypes(include=[np.number]).columns:
+            if c.lower() not in ['id', 'gioitinh', 'dotuoi', 'thunhap', 'hocvan', 'ts_batch']:
+                prefix = ''.join([char for char in str(c) if not char.isdigit()]).strip('_')
+                if len(prefix) >= 2:
+                    detected_scales.setdefault(prefix, []).append(str(c))
+        detected_scales = {k: v for k, v in detected_scales.items() if len(v) >= 2}
 
-    default_paths = [("PU", "AT"), ("PE", "AT"), ("TR", "AT"), ("AT", "BI"), ("PU", "BI")]
+    if not detected_scales:
+        st.error("Không tìm thấy các biến đo lường Likert hợp lệ để chạy PLS-SEM. Vui lòng kiểm tra lại dữ liệu.")
+        st.stop()
+
+    st.markdown("##### 1. Thang đo tham gia mô hình (Constructs):")
+    selected_pls_scales = st.multiselect(
+        "Chọn các thang đo nghiên cứu:",
+        options=list(detected_scales.keys()),
+        default=list(detected_scales.keys()),
+        key="pls_selected_scales_list",
+        help="Chọn các thang đo tham gia vào mô hình PLS-SEM."
+    )
     
-    col_model, col_boot = st.columns([2, 1])
-    with col_model:
-        st.markdown("##### Các thang đo đo lường (Constructs):")
-        st.json(detected_scales)
+    active_constructs = {k: detected_scales[k] for k in selected_pls_scales if k in detected_scales}
+    construct_names = list(active_constructs.keys())
+
+    if len(construct_names) < 2:
+        st.warning("Cần chọn ít nhất 2 thang đo để thiết lập mô hình PLS-SEM.")
+        st.stop()
+
+    # Intelligent Auto-suggest paths if session state is empty or invalid
+    has_c = lambda c: c in construct_names
+    suggested_paths = []
+    
+    # Extended TAM / Survey pattern
+    if has_c("PEOU") and has_c("PU"): suggested_paths.append(("PEOU", "PU"))
+    if has_c("TRANS") and has_c("TRUST"): suggested_paths.append(("TRANS", "TRUST"))
+    if has_c("CULT") and has_c("TRUST"): suggested_paths.append(("CULT", "TRUST"))
+    if has_c("RISK") and has_c("TRUST"): suggested_paths.append(("RISK", "TRUST"))
+    if has_c("PU") and has_c("BI"): suggested_paths.append(("PU", "BI"))
+    if has_c("TRUST") and has_c("BI"): suggested_paths.append(("TRUST", "BI"))
+    if has_c("SI") and has_c("BI"): suggested_paths.append(("SI", "BI"))
+    if has_c("BI") and has_c("USE"): suggested_paths.append(("BI", "USE"))
+    
+    # Legacy sample data support
+    if has_c("PU") and has_c("AT"): suggested_paths.append(("PU", "AT"))
+    if has_c("PE") and has_c("AT"): suggested_paths.append(("PE", "AT"))
+    if has_c("TR") and has_c("AT"): suggested_paths.append(("TR", "AT"))
+    if has_c("AT") and has_c("BI"): suggested_paths.append(("AT", "BI"))
+    if has_c("PU") and has_c("BI") and ("PU", "BI") not in suggested_paths: suggested_paths.append(("PU", "BI"))
+    
+    # Sequential fallback
+    if not suggested_paths:
+        for i in range(len(construct_names) - 1):
+            suggested_paths.append((construct_names[i], construct_names[i+1]))
+
+    if "pls_user_paths" not in st.session_state or not st.session_state.pls_user_paths:
+        st.session_state.pls_user_paths = suggested_paths
+
+    # Filter paths to active constructs
+    valid_paths = [(s, t) for s, t in st.session_state.pls_user_paths if s in construct_names and t in construct_names]
+
+    st.markdown("##### 2. Thiết lập Giả thuyết Mô hình Cấu trúc (Structural Path Builder):")
+    col_p1, col_p2, col_p3 = st.columns([2, 2, 1])
+    with col_p1:
+        new_src = st.selectbox("Biến nguyên nhân (X):", construct_names, key="pls_src_select")
+    with col_p2:
+        tgt_cands = [c for c in construct_names if c != new_src]
+        new_tgt = st.selectbox("Biến kết quả (Y):", tgt_cands, index=len(tgt_cands)-1 if tgt_cands else 0, key="pls_tgt_select")
+    with col_p3:
+        st.write("")
+        st.write("")
+        if st.button("➕ Thêm đường dẫn", use_container_width=True, key="pls_btn_add_path"):
+            if (new_src, new_tgt) not in valid_paths:
+                valid_paths.append((new_src, new_tgt))
+                st.session_state.pls_user_paths = valid_paths
+                st.rerun()
+
+    if valid_paths:
+        st.markdown("**Các đường dẫn giả thuyết tác động hiện có:**")
+        path_pills = " &nbsp;•&nbsp; ".join([f"`{s} ➔ {t}`" for s, t in valid_paths])
+        st.markdown(f'<div style="background: rgba(30, 58, 138, 0.08); padding: 10px 14px; border-radius: 8px; border: 1px solid rgba(59, 130, 246, 0.25); margin-bottom: 10px;">{path_pills}</div>', unsafe_allow_html=True)
+        
+        c_rst, c_clr = st.columns([1, 1])
+        with c_rst:
+            if st.button("🔄 Khôi phục đường dẫn gợi ý", key="pls_reset_defaults"):
+                st.session_state.pls_user_paths = suggested_paths
+                st.rerun()
+        with c_clr:
+            if st.button("🗑️ Xóa danh sách đường dẫn", key="pls_clear_all_paths"):
+                st.session_state.pls_user_paths = []
+                st.rerun()
+    else:
+        st.info("💡 Chưa có đường dẫn cấu trúc nào. Hãy chọn Biến nguyên nhân (X) và Biến kết quả (Y) rồi nhấn '➕ Thêm đường dẫn'.")
+
+    st.markdown("---")
+    col_boot, col_info = st.columns([1, 2])
     with col_boot:
-        n_boot = st.selectbox("Số lượng mẫu Bootstrapping:", [500, 1000, 2000], index=1)
-        st.caption("Bootstrapping giúp kiểm định giả thuyết phi tham số chính xác tuyệt đối.")
+        n_boot = st.selectbox("Số lượng mẫu Bootstrapping:", [100, 300, 500, 1000, 2000], index=0, help="100: Thử nghiệm cực nhanh (~1-2s); 500-1000: Chuẩn công bố bài báo quốc tế.")
+    with col_info:
+        st.caption("⚡ Thuật toán lặp Wold's PLS kết hợp kỹ thuật Bootstrapping phi tham số để ước lượng sai số chuẩn SE, trị số t-stat, p-value và khoảng tin cậy 95%.")
 
     if st.button("🚀 Chạy Thuật toán PLS-SEM & Bootstrapping", use_container_width=True):
-        with st.spinner("Đang chạy thuật toán lặp Wold và Bootstrapping..."):
-            pls = PLSModel(detected_scales, default_paths)
+        if not valid_paths:
+            st.error("Cần thiết lập ít nhất 1 đường dẫn cấu trúc (Source -> Target) để chạy mô hình PLS-SEM.")
+            st.stop()
+        with st.spinner(f"Đang chạy thuật toán lặp Wold và Bootstrapping ({n_boot} mẫu)..."):
+            pls = PLSModel(active_constructs, valid_paths)
             pls.fit(df)
             measurement_res = pls.get_measurement_summary(df)
             boot_res = pls.bootstrap(df, n_boot=n_boot)
